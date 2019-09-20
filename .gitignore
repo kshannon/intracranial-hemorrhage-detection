@@ -1,3 +1,25 @@
+# Project Directories
+data/
+models/
+misc/
+TensorBoard_logs/
+submissions/
+
+# Project Files
+events.out.tfevents.*
+*.h5
+*.hdf5
+*.npz
+*.savez
+*.conf
+*.ini
+*.config
+*-ignore.py
+*-ignore.ipynb
+notes.txt
+.vscode/
+.DS_Store
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
