@@ -1,9 +1,9 @@
 import numpy as numpy
 import csv
 import sys
+import data_ingest
 
 
-test_data_path = "../data/stage_1_test_images/"
 intracranial_hemorrhage_subtypes = [
     "epidural_hemorrhage",
     "intraparenchymal_hemorrhage",
@@ -14,30 +14,17 @@ intracranial_hemorrhage_subtypes = [
 ]
 
 
-def read_dicom(filename):
-    """
-    Transform a medical DICOM file to a standardized pixel based array
-    """
-    img = np.array(pydicom.dcmread(test_data_path + filename).pixel_array, dtype=float).T
-    mean = img.mean()
-    std = img.std()
-    #perfmorming standardization by subtracting the mean and dividing the s.d.
-    standardized_array = np.divide(np.subtract(img,mean),std)
-    return standardized_array
-
-
 def main():
     with open('../submissions/dry_run.csv', 'a+', newline='') as outfile:
     writer = csv.writer(outfile)
     writer.writerow(['Id','Label'])
 
-    for filename in tqdm(os.listdir(test_data_path)): 
-        # read_dicom(filename) comment out for dry run
+    for filename in tqdm(os.listdir(data_ingest.s1_test_path)): 
+        standardized_array = data_ingest.read_dicom(filename)
 
         for subtype in intracranial_hemorrhage_subtypes:
             readable_id = [filename[:-4] + "_" + subtype
             writer.writerow(readable_id, 0])
-    sys.exit()
 
 if __name__ == "__main__":
     main()
