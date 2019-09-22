@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # sys.argv[1] is a model name this will alos be assigned to the submissoon csv name
 
 import numpy as numpy

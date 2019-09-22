@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # Custom module for dealing with global project paths and functions related to injesting and accessing raw data
 
 import sys
