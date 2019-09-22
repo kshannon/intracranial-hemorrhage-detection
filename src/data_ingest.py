@@ -1,3 +1,8 @@
+# Custom module for dealing with global project paths and functions related to injesting and accessing raw data
+
+import sys
+import os
+import pydicom
 
 s1_test_path = "../data/stage_1_test_images/"
 s1_train_path = "../data/stage_1_train_images/"

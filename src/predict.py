@@ -1,8 +1,12 @@
+# sys.argv[1] is a model name this will alos be assigned to the submissoon csv name
+
 import numpy as numpy
 import csv
 import sys
 import data_ingest
-
+from tqdm import tqdm
+from keras.models import load_model
+from model import dice_coef, soft_dice_coef, unet_model, dice_coef_loss
 
 intracranial_hemorrhage_subtypes = [
     "epidural_hemorrhage",
@@ -12,10 +16,14 @@ intracranial_hemorrhage_subtypes = [
     "subdural_hemorrhage",
     "any"
 ]
+custom_objects = {"dice_coef":dice_coef,"dice_coef_loss":dice_coef_loss,"soft_dice_coef":soft_dice_coef}
+model_name = '../models/' + sys.argv[1]
+submission_name = '../submissions/' + sys.argv[1] + '.csv'
 
 
 def main():
-    with open('../submissions/dry_run.csv', 'a+', newline='') as outfile:
+    model = load_model(model_name, custom_objects=custom_objects)
+    with open(submission_name, 'a+', newline='') as outfile:
     writer = csv.writer(outfile)
     writer.writerow(['Id','Label'])
 
