@@ -12,6 +12,9 @@ The dataset has been provided by the Radiological Society of North America (RSNA
 ## Model
 todo.
 
+## Evaluation
+Model evaluated using a weighted multi-label logarithmic loss (same as cross-entropy for all intents and purposes). Using the minmax rule to avoid undefinned predictions at {0,1}, offset by a small epsilon: max(min(p, 1−10^−15), 10^-15).
+
 ## Team
 - Chris Chen
 - Tony Reina
