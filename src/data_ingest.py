@@ -6,6 +6,7 @@ import os
 import numpy as np
 import pydicom
 
+#TODO: add these to sys args, or better yet read from a config file...
 # stage 1 data
 s1_test_path = "../data/stage_1_test_images/"
 s1_train_path = "../data/stage_1_train_images/"

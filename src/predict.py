@@ -7,8 +7,8 @@ import sys
 import os
 import data_ingest
 from tqdm import tqdm
-from keras.models import load_model
-from model import dice_coef, soft_dice_coef, unet_model, dice_coef_loss
+# from keras.models import load_model
+# from model import dice_coef, soft_dice_coef, unet_model, dice_coef_loss
 
 intracranial_hemorrhage_subtypes = [
                                     "epidural",
@@ -18,9 +18,10 @@ intracranial_hemorrhage_subtypes = [
                                     "subdural",
                                     "any"
                                     ]
-custom_objects = {"dice_coef":dice_coef,"dice_coef_loss":dice_coef_loss,"soft_dice_coef":soft_dice_coef}
-model_name = '../models/' + sys.argv[1]
-submission_name = '../submissions/' + sys.argv[1] + '.csv'
+# custom_objects = {"dice_coef":dice_coef,"dice_coef_loss":dice_coef_loss,"soft_dice_coef":soft_dice_coef}
+# model_name = '../models/' + sys.argv[1]
+submission_name = os.path.join('../submissions/', sys.argv[1]+'.csv')
+print(submission_name)
 
 
 def main():
@@ -30,10 +31,10 @@ def main():
         writer.writerow(['Id','Label'])
 
         for filename in tqdm(os.listdir(data_ingest.s1_test_path)): 
-            standardized_array = data_ingest.translate_dicom(filename)
+            # standardized_array = data_ingest.translate_dicom(filename)
             
             #TODO: make predictions for each subtype and all
-            prediction = 0.5
+            prediction = 0.05
 
             for subtype in intracranial_hemorrhage_subtypes:
                 readable_id = filename[:-4] + "_" + subtype
