@@ -30,7 +30,7 @@ def main():
         writer.writerow(['Id','Label'])
 
         for filename in tqdm(os.listdir(data_ingest.s1_test_path)): 
-            standardized_array = data_ingest.translate_dicom(filename)
+            standardized_array = data_ingest.translate_dicom(filename, test=False)
             
             #TODO: make predictions for each subtype and all
             prediction = 0.05
