@@ -22,4 +22,7 @@ Model evaluated using a weighted multi-label logarithmic loss (same as cross-ent
 
 ## Getting Started
 Instructions for deploying our codebase and reproducing our results:
-1. todo
+1. Run the Docker script to create a GPU ready linux container. (We assume you will be using Nvidia GPUs on a Linux based system.
+2. Ensure that the conda environment was set up properly and matches the .yaml environment configuration. 
+3. Set your paths to the training and test data in the src/config.ini file. 
+4. todo
