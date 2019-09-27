@@ -1,0 +1,6 @@
+pandas 
+scipy 
+pydicom
+pillow
+opencv-contrib-python
+tqdm
