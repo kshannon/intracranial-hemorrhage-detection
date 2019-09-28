@@ -18,12 +18,12 @@ train_df["type"] = train_df["ID"].apply(lambda st: st.split("_")[2])
 pivot_df = train_df[["Label", "filename", "type"]].drop_duplicates().pivot(
     index="filename", columns="type", values="Label").reset_index()
 
-pivot_df["targets"] = pivot_df.apply(lambda x: np.array([x["epidural"],
-                                                     x["intraparenchymal"],
-                                                     x["intraventricular"],
-                                                     x["subarachnoid"],
-                                                     x["subdural"],
-                                                     x["any"]]), axis=1)
+pivot_df["targets"] = pivot_df.apply(lambda x: np.array([float(x["epidural"]),
+                                                     float(x["intraparenchymal"]),
+                                                     float(x["intraventricular"]),
+                                                     float(x["subarachnoid"]),
+                                                     float(x["subdural"]),
+                                                     float(x["any"])]), axis=1)
 
 print(pivot_df.shape)
 print(pivot_df.head(30))
