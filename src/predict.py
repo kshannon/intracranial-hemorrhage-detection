@@ -29,10 +29,12 @@ def main():
         writer = csv.writer(outfile)
         writer.writerow(['Id','Label'])
 
-        for filename in tqdm(os.listdir(data_ingest.s1_test_path)): 
+        for filename in tqdm(os.listdir(data_ingest.test_data_path)): 
             standardized_array = data_ingest.translate_dicom(filename, test=False)
             
             #TODO: make predictions for each subtype and all
+            #TODO: based on tony's vecotrization will need to loop the vector and 
+            # apply each value to the mapped type in intracranial_hemorrhage_subtypes obj
             prediction = 0.05
 
             for subtype in intracranial_hemorrhage_subtypes:
