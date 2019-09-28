@@ -5,7 +5,7 @@ import numpy as numpy
 import csv
 import sys
 import os
-import data_ingest
+import data_flow
 from tqdm import tqdm
 from keras.models import load_model
 from model import dice_coef, soft_dice_coef, unet_model, dice_coef_loss
@@ -29,8 +29,8 @@ def main():
         writer = csv.writer(outfile)
         writer.writerow(['Id','Label'])
 
-        for filename in tqdm(os.listdir(data_ingest.test_data_path)): 
-            standardized_array = data_ingest.translate_dicom(filename, test=False)
+        for filename in tqdm(os.listdir(data_flow.test_data_path)): 
+            standardized_array = data_flow.translate_dicom(filename, test=False)
             
             #TODO: make predictions for each subtype and all
             #TODO: based on tony's vecotrization will need to loop the vector and 
