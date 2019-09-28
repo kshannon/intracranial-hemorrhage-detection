@@ -63,6 +63,12 @@ class DataGenerator(K.utils.Sequence):
         if self.shuffle == True:
             np.random.shuffle(self.indexes)
 
+    def normalize_img(self, img):
+
+        img = (img - np.mean(img)) / np.std(img)
+
+        return img
+
     def __data_generation(self, indexes):
         """
         Generates data containing batch_size samples
@@ -77,7 +83,8 @@ class DataGenerator(K.utils.Sequence):
         for idx in range(self.batch_size):
             filename = os.path.join(self.data_path, batch_data[idx][0])
             with pydicom.dcmread(filename) as ds:
-                X[idx,:,:,0] = ds.pixel_array.astype(np.float)
+                img = ds.pixel_array.astype(np.float)
+                X[idx,:,:,0] = self.normalize_img(img)
 
             y[idx,] = [float(x) for x in batch_data[idx][1][1:-1].split(" ")]
 
