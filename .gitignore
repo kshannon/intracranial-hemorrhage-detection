@@ -1,6 +1,7 @@
 # Project Directories
 data/
 misc/
+tensorboards/
 TensorBoard_logs/
 submissions/
 
