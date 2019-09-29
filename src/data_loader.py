@@ -58,6 +58,12 @@ class DataGenerator(K.utils.Sequence):
 
         return X, y
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        return isinstance(value, TypeError)
+
     def on_epoch_end(self):
         """
         Updates indexes after each epoch
@@ -84,8 +90,11 @@ class DataGenerator(K.utils.Sequence):
         for idx in range(self.batch_size):
             filename = os.path.join(self.data_path, batch_data[idx][0])
             with pydicom.dcmread(filename) as ds:
-                img = ds.pixel_array.astype(np.float)
-                X[idx,:,:,0] = self.normalize_img(img)
+            #     img = ds.pixel_array.astype(np.float)
+            #     X[idx,:,:,0] = self.normalize_img(img)
+                window_center, window_width, intercept, slope = data_flow.get_windowing(ds)
+                img = data_flow.window_image(ds.pixel_array, window_center, window_width, intercept, slope)
+                X[idx,:,:,0] = self.normalize_img(np.array(img, dtype=float))
 
             y[idx,] = [float(x) for x in batch_data[idx][1][1:-1].split(" ")]
 
