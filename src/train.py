@@ -1,17 +1,29 @@
-from tensorflow import keras as K
 import numpy as np
-
+import tensorflow as tf
+from tensorflow import keras as K
+from tensorflow import ConfigProto
+from tensorflow import InteractiveSession
 from data_loader import DataGenerator
+import data_flow
+import parse_config
+
+if parse_config.USING_RTX_20XX:
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    tf.keras.backend.set_session(tf.Session(config=config))
+
+DATA_DIRECTORY = data_flow.TRAIN_DATA_PATH
+TRAIN_CSV = parse_config.VALIDATE_CSV
+VALIDATE_CSV = parse_config.VALIDATE_CSV
 
 num_chan_in = 2
 height = 512
 width = 512
 num_classes = 6
 
-data_directory = "../../stage_1_train_images/"
 
-training_data = DataGenerator(csv_filename="./training.csv", data_path=data_directory, channels=num_chan_in)
-validation_data = DataGenerator(csv_filename="./validation.csv", data_path=data_directory, channels=num_chan_in)
+training_data = DataGenerator(csv_filename=TRAIN_CSV, data_path=DATA_DIRECTORY)
+validation_data = DataGenerator(csv_filename=VALIDATE_CSV, data_path=DATA_DIRECTORY)
 
 inputs = K.layers.Input([height, width, num_chan_in], name="DICOM")
 
