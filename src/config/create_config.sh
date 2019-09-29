@@ -7,4 +7,7 @@ cat > config.ini <<- "EOF"
     train_csv_path = training.csv
     validate_csv_path = validation.csv
     test_csv_path = testing.csv
+    [mode]
+    use_docker = False
+    gpu_rtx_20xx = False
 EOF
