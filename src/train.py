@@ -3,15 +3,15 @@ import numpy as np
 
 from data_loader import DataGenerator
 
-num_chan_in = 1
+num_chan_in = 2
 height = 512
 width = 512
 num_classes = 6
 
 data_directory = "../../stage_1_train_images/"
 
-training_data = DataGenerator(csv_filename="./training.csv", data_path=data_directory)
-validation_data = DataGenerator(csv_filename="./validation.csv", data_path=data_directory)
+training_data = DataGenerator(csv_filename="./training.csv", data_path=data_directory, channels=num_chan_in)
+validation_data = DataGenerator(csv_filename="./validation.csv", data_path=data_directory, channels=num_chan_in)
 
 inputs = K.layers.Input([height, width, num_chan_in], name="DICOM")
 

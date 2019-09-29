@@ -28,7 +28,7 @@ class DataGenerator(K.utils.Sequence):
 
         self.batch_size = batch_size
         self.dims = dims
-        self.channels = 1
+        self.channels = channels
         self.num_classes = num_classes
 
         self.data_path = data_path
@@ -68,6 +68,11 @@ class DataGenerator(K.utils.Sequence):
         img = (img - np.mean(img)) / np.std(img)
 
         return img
+        
+        
+    def window_img(self, img, min=-50, max=100):
+       
+        return self.normalize_img(np.clip(img, min, max))
 
     def __data_generation(self, indexes):
         """
@@ -84,7 +89,16 @@ class DataGenerator(K.utils.Sequence):
             filename = os.path.join(self.data_path, batch_data[idx][0])
             with pydicom.dcmread(filename) as ds:
                 img = ds.pixel_array.astype(np.float)
+                
+                # If img not expected shape, then replace it with another image from dataset
+                if (np.std(img) == 0) or (img.shape[0] != self.dims[0]) or (img.shape[1] != self.dims[1]):
+                   print("Filename {} bad.".format(filename))
+                   filename = os.path.join(self.data_path, batch_data[0][0])
+                   img = pydicom.dcmread(filename).pixel_array.astype(np.float)
+                   
                 X[idx,:,:,0] = self.normalize_img(img)
+                X[idx,:,:,1] = self.window_img(img, -100, 100)
+                
 
             y[idx,] = [float(x) for x in batch_data[idx][1][1:-1].split(" ")]
 
