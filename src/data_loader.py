@@ -1,14 +1,16 @@
 #!/usr/bin/env python
 # coding: utf-8
 
+import os
 import numpy as np
 from tensorflow import keras as K
-
-import os
-import pydicom
 import pandas as pd
+import pydicom
+import data_flow
 
-data_directory = "../../stage_1_train_images/"
+
+DATA_DIRECTORY = data_flow.TRAIN_DATA_PATH #"../../stage_1_train_images/"
+
 
 class DataGenerator(K.utils.Sequence):
     """
@@ -76,7 +78,6 @@ class DataGenerator(K.utils.Sequence):
 
         batch_data = self.df.loc[indexes].values
 
-
         X = np.empty((self.batch_size, *self.dims, self.channels))
         y = np.empty((self.batch_size, self.num_classes))
 
@@ -93,7 +94,7 @@ class DataGenerator(K.utils.Sequence):
 
 if __name__ == "__main__":
 
-    training_data = DataGenerator(csv_filename="./training.csv", data_path=data_directory)
+    training_data = DataGenerator(csv_filename="./training.csv", data_path=DATA_DIRECTORY)
     images, masks = training_data.__getitem__(1)
 
     print(masks)
