@@ -1,14 +1,22 @@
-from tensorflow import keras as K
 import numpy as np
-
+import tensorflow as tf
+from tensorflow import keras as K
 from data_loader import DataGenerator
+import data_flow
+
+from tensorflow import ConfigProto
+from tensorflow import InteractiveSession
+config = tf.ConfigProto()
+config.gpu_options.allow_growth = True
+tf.keras.backend.set_session(tf.Session(config=config))
+
 
 num_chan_in = 1
 height = 512
 width = 512
 num_classes = 6
 
-data_directory = "../../stage_1_train_images/"
+data_directory = data_flow.TRAIN_DATA_PATH #"../../stage_1_train_images/"
 
 training_data = DataGenerator(csv_filename="./training.csv", data_path=data_directory)
 validation_data = DataGenerator(csv_filename="./validation.csv", data_path=data_directory)
