@@ -4,30 +4,20 @@
 import sys
 import os
 import ast
-from csv import DictReader
+import parse_config
 import numpy as np
 import pandas as pd
-from configparser import ConfigParser
 from tqdm import tqdm
 import pydicom
-import PIL
-from PIL import Image
-import gdcm
-import cv2
+# import PIL
+# from PIL import Image
+# import gdcm
+# import cv2
 
-# Derive the absolute path from file
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 
-config = ConfigParser()
-config.read('./config/config.ini')
-# stage 1 data
-TRAIN_DATA_PATH = config.get('path','s1_train_path')
-TEST_DATA_PATH = config.get('path','s1_test_path')
-TRAIN_CSV = config.get('path','train_csv_path')
-VALIDATE_CSV = config.get('path','validate_csv_path')
-TEST_CSV = config.get('path','test_csv_path')
-CSV_PATHS = [TRAIN_CSV,VALIDATE_CSV,TEST_CSV]
-
+TRAIN_DATA_PATH = parse_config.TRAIN_DATA_PATH
+TEST_DATA_PATH = parse_config.TEST_DATA_PATH
+CSV_PATHS = parse_config.CSV_PATHS
 
 
 def translate_dicom(filename,path=TRAIN_DATA_PATH,apply_window=None,test=False):
