@@ -16,7 +16,7 @@ DATA_DIRECTORY = data_flow.TRAIN_DATA_PATH
 TRAIN_CSV = parse_config.VALIDATE_CSV
 VALIDATE_CSV = parse_config.VALIDATE_CSV
 
-num_chan_in = 1
+num_chan_in = 2
 height = 512
 width = 512
 num_classes = 6
