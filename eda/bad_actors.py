@@ -11,7 +11,7 @@ from tqdm.auto import tqdm
 tqdm.pandas()
 
 
-TRAIN_CSV_PATH = '../src/training.csv'
+# TRAIN_CSV_PATH = '../src/training.csv'
 VALIDATE_CSV_PATH = '../src/validation.csv'
 # TEST_CSV_PATH = '../src/testing.csv'
 
@@ -22,19 +22,23 @@ train_data = '../../data/stage_1_train_images/'
 def check_dicom(row, path=train_data):
     try:
         data = pydicom.dcmread(path+row[0])
-    except:
-        print('corruption...')
+    except ValueError:
+        print('corruption on open...')
         return False
-    img = np.array(data.pixel_array, dtype=float)
+    try:
+        img = np.array(data.pixel_array, dtype=float)
+    except ValueError:
+        print('corruption on pixel_array...')
+        return False
     if img.shape != (512, 512):
         print('square peg in round hole!')
         return False
     return True
 
 
-df_train = pd.read_csv(TRAIN_CSV_PATH)
-df_train['bad_actors'] = df_train.progress_apply(lambda x: check_dicom(x), axis=1)
-df_train.to_csv('../src/train_flagged.csv', index=False)
+# df_train = pd.read_csv(TRAIN_CSV_PATH)
+# df_train['bad_actors'] = df_train.progress_apply(lambda x: check_dicom(x), axis=1)
+# df_train.to_csv('../src/train_flagged.csv', index=False)
 
 df_validate = pd.read_csv(VALIDATE_CSV_PATH)
 df_validate['bad_actors'] = df_validate.progress_apply(lambda x: check_dicom(x), axis=1)
