@@ -63,7 +63,7 @@ model.compile(loss=K.losses.categorical_crossentropy,
 
 
 # Saved models
-checkpoint = K.callbacks.ModelCheckpoint("saved_model.pb", verbose=1, save_best_only=True)
+checkpoint = K.callbacks.ModelCheckpoint("../models/baseline-model.pb", verbose=1, save_best_only=True)
                                                        
 # TensorBoard
 tb_logs = K.callbacks.TensorBoard(log_dir="tensorboards")
@@ -71,4 +71,4 @@ tb_logs = K.callbacks.TensorBoard(log_dir="tensorboards")
 model.fit_generator(training_data, 
                     validation_data=validation_data, 
                     callbacks=[checkpoint, tb_logs],
-                    epochs=10)
+                    epochs=1)

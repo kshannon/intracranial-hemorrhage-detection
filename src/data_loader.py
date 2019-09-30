@@ -9,7 +9,7 @@ import pydicom
 import data_flow
 
 
-DATA_DIRECTORY = data_flow.TRAIN_DATA_PATH #"../../stage_1_train_images/"
+DATA_DIRECTORY = data_flow.TRAIN_DATA_PATH
 
 
 class DataGenerator(K.utils.Sequence):
@@ -21,7 +21,7 @@ class DataGenerator(K.utils.Sequence):
                  data_path,
                  batch_size=32,
                  dims=(512,512),
-                 channels=1,
+                 channels=2,
                  num_classes=6,
                  shuffle=True):
         """
@@ -52,7 +52,6 @@ class DataGenerator(K.utils.Sequence):
         Generate one batch of data
         """
         indexes = self.indexes[index*self.batch_size:(index+1)*self.batch_size]
-
         # Generate data
         X, y = self.__data_generation(indexes)
 
@@ -72,21 +71,16 @@ class DataGenerator(K.utils.Sequence):
             np.random.shuffle(self.indexes)
 
     def normalize_img(self, img):
-
         img = (img - np.mean(img)) / np.std(img)
-
         return img
         
-        
     def window_img(self, img, min=-50, max=100):
-       
         return self.normalize_img(np.clip(img, min, max))
 
     def __data_generation(self, indexes):
         """
         Generates data containing batch_size samples
         """
-
         batch_data = self.df.loc[indexes].values
 
         X = np.empty((self.batch_size, *self.dims, self.channels))
@@ -106,10 +100,11 @@ class DataGenerator(K.utils.Sequence):
                    ds = pydicom.dcmread(filename)
                    img = ds.pixel_array.astype(np.float)
                 
+                X[idx,:,:,0] = self.normalize_img(np.array(img, dtype=float))
+                
                 # with a healthy img & ds we can get the windowing data
                 window_center, window_width, intercept, slope = data_flow.get_windowing(ds)
                 img = data_flow.window_image(ds.pixel_array, window_center, window_width, intercept, slope)
-                X[idx,:,:,0] = self.normalize_img(np.array(img, dtype=float))
                 X[idx,:,:,1] = self.window_img(img, -100, 100)
                 
             y[idx,] = [float(x) for x in batch_data[idx][1][1:-1].split(" ")]
