@@ -23,7 +23,8 @@ class DataGenerator(K.utils.Sequence):
                  dims=(512,512),
                  channels=2,
                  num_classes=6,
-                 shuffle=True):
+                 shuffle=True,
+                 prediction=False):
         """
         Initialization
         """
@@ -39,6 +40,7 @@ class DataGenerator(K.utils.Sequence):
         self.indexes = np.arange(len(self.df))
 
         self.shuffle = shuffle
+        self.prediction = prediction
         self.on_epoch_end()
 
     def __len__(self):
@@ -53,9 +55,12 @@ class DataGenerator(K.utils.Sequence):
         """
         indexes = self.indexes[index*self.batch_size:(index+1)*self.batch_size]
         # Generate data
-        X, y = self.__data_generation(indexes)
-
-        return X, y
+        if not self.prediction:
+            X, y = self.__data_generation(indexes)
+            return X, y
+        
+        X = self.__data_generation(indexes)
+        return X
 
     def __enter__(self):
         return self
@@ -84,7 +89,8 @@ class DataGenerator(K.utils.Sequence):
         batch_data = self.df.loc[indexes].values
 
         X = np.empty((self.batch_size, *self.dims, self.channels))
-        y = np.empty((self.batch_size, self.num_classes))
+        if not self.prediction:
+            y = np.empty((self.batch_size, self.num_classes))
 
         for idx in range(self.batch_size):
             filename = os.path.join(self.data_path, batch_data[idx][0])
@@ -107,9 +113,13 @@ class DataGenerator(K.utils.Sequence):
                 img = data_flow.window_image(ds.pixel_array, window_center, window_width, intercept, slope)
                 X[idx,:,:,1] = self.window_img(img, -100, 100)
                 
-            y[idx,] = [float(x) for x in batch_data[idx][1][1:-1].split(" ")]
-
-        return X, y
+            if not self.prediction:
+                y[idx,] = [float(x) for x in batch_data[idx][1][1:-1].split(" ")]
+        
+        if not self.prediction:
+            return X, y
+        
+        return filename, X
 
 
 if __name__ == "__main__":

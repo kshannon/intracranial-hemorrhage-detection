@@ -20,7 +20,7 @@ TEST_DATA_PATH = parse_config.TEST_DATA_PATH
 CSV_PATHS = parse_config.CSV_PATHS
 
 
-def translate_dicom(filename, path=TRAIN_DATA_PATH, apply_window=True):
+def translate_dicom(filename, apply_window=True):
     """
     Transform a medical DICOM file to a standardized pixel based array
     Arguments:
@@ -28,7 +28,6 @@ def translate_dicom(filename, path=TRAIN_DATA_PATH, apply_window=True):
         path {string} -- file path to data, set in config.ini
         apply_window {bool} -- if True (default) then windowed png of dicom data is returned
     """
-    print("filename")
     data = pydicom.dcmread(filename)
     
     if apply_window:
