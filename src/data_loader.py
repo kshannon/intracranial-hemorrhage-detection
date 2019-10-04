@@ -36,11 +36,11 @@ class DataGenerator(K.utils.Sequence):
 
         self.data_path = data_path
 
-        self.df = pd.read_csv(csv_filename)
+        self.df = pd.read_csv(csv_filename, header=None)
         self.indexes = np.arange(len(self.df))
 
-        self.shuffle = shuffle
         self.prediction = prediction
+        self.shuffle = shuffle
         self.on_epoch_end()
 
     def __len__(self):
@@ -55,12 +55,9 @@ class DataGenerator(K.utils.Sequence):
         """
         indexes = self.indexes[index*self.batch_size:(index+1)*self.batch_size]
         # Generate data
-        if not self.prediction:
-            X, y = self.__data_generation(indexes)
-            return X, y
+        X, y = self.__data_generation(indexes)
+        return X, y
         
-        X = self.__data_generation(indexes)
-        return X
 
     def __enter__(self):
         return self
@@ -89,8 +86,7 @@ class DataGenerator(K.utils.Sequence):
         batch_data = self.df.loc[indexes].values
 
         X = np.empty((self.batch_size, *self.dims, self.channels))
-        if not self.prediction:
-            y = np.empty((self.batch_size, self.num_classes))
+        y = np.empty((self.batch_size, self.num_classes))
 
         for idx in range(self.batch_size):
             filename = os.path.join(self.data_path, batch_data[idx][0])
@@ -112,14 +108,12 @@ class DataGenerator(K.utils.Sequence):
                 window_center, window_width, intercept, slope = data_flow.get_windowing(ds)
                 img = data_flow.window_image(ds.pixel_array, window_center, window_width, intercept, slope)
                 X[idx,:,:,1] = self.window_img(img, -100, 100)
-                
-            if not self.prediction:
+
+            if self.prediction != True:    
                 y[idx,] = [float(x) for x in batch_data[idx][1][1:-1].split(" ")]
         
-        if not self.prediction:
-            return X, y
         
-        return filename, X
+        return X, y
 
 
 if __name__ == "__main__":
