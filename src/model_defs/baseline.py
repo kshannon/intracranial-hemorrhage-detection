@@ -1,42 +1,5 @@
-import sys
-import os
-import numpy as np
-import datetime
-import tensorflow as tf
-from tensorflow import keras as K
-from tensorflow import ConfigProto
-from tensorflow import InteractiveSession
-from data_loader import DataGenerator
-import data_flow
-import parse_config
-from model_defs import *
+# baseline model
 
-
-if parse_config.USING_RTX_20XX:
-    config = tf.ConfigProto()
-    config.gpu_options.allow_growth = True
-    tf.keras.backend.set_session(tf.Session(config=config))
-
-
-MODEL_NAME = sys.argv[1]
-DATA_DIRECTORY = data_flow.TRAIN_DATA_PATH
-TRAIN_CSV = parse_config.VALIDATE_CSV
-VALIDATE_CSV = parse_config.VALIDATE_CSV
-BATCH_SIZE = 16
-EPOCHS = 2
-TRAINING_DATA = DataGenerator(csv_filename=TRAIN_CSV, data_path=DATA_DIRECTORY, batch_size=BATCH_SIZE)
-VALIDATION_DATA = DataGenerator(csv_filename=VALIDATE_CSV, data_path=DATA_DIRECTORY, batch_size=BATCH_SIZE)
-
-
-# Saved models
-checkpoint = K.callbacks.ModelCheckpoint(os.path.join('../models/', sys.argv[1] + '.pb'), verbose=1, save_best_only=True)
-                                                       
-# TensorBoard    
-tb_logs = K.callbacks.TensorBoard(log_dir = os.path.join('tensorboards/', sys.argv[1]), histogram_freq=1)
-# log_dir="logs/fit/" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-
-
-############## Model Definition goes here ##############
 num_chan_in = 2
 height = 512
 width = 512
