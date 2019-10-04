@@ -47,13 +47,15 @@ poolC = K.layers.MaxPooling2D(name="poolC", pool_size=(2, 2))(convC)
 
 flat = K.layers.Flatten()(poolC)
 
-drop = K.layers.Dropout(0.5)(flat)
+dense1 = K.layers.Dense(256, activation="relu")(flat)
 
-dense1 = K.layers.Dense(128, activation="relu")(drop)
+drop = K.layers.Dropout(0.5)(dense1)
 
-dense2 = K.layers.Dense(num_classes, activation="sigmoid")(dense1)
+dense2 = K.layers.Dense(128, activation="relu")(drop)
 
-model = K.models.Model(inputs=[inputs], outputs=[dense2])
+prediction = K.layers.Dense(num_classes, activation="sigmoid")(dense2)
+
+model = K.models.Model(inputs=[inputs], outputs=[prediction])
 
 opt = K.optimizers.Adam()
 
@@ -64,11 +66,11 @@ model.compile(loss=K.losses.categorical_crossentropy,
 
 # Saved models
 checkpoint = K.callbacks.ModelCheckpoint("../models/baseline-model.pb", verbose=1, save_best_only=True)
-                                                       
+
 # TensorBoard
 tb_logs = K.callbacks.TensorBoard(log_dir="tensorboards")
-                                                                                      
-model.fit_generator(training_data, 
-                    validation_data=validation_data, 
+
+model.fit_generator(training_data,
+                    validation_data=validation_data,
                     callbacks=[checkpoint, tb_logs],
                     epochs=1)

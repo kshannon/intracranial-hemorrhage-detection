@@ -63,6 +63,6 @@ validation_df = pivot_df[pivot_df.filename.isin(validation_files)]
 test_df = pivot_df[pivot_df.filename.isin(test_files)]
 
 # Save the 3 lists to CSV files for use in Keras
-train_df[["filename", "targets", "any"]].to_csv("training.csv", index=False)
-validation_df[["filename", "targets", "any"]].to_csv("validation.csv", index=False)
-test_df[["filename", "targets", "any"]].to_csv("testing.csv", index=False)
+train_df[["filename", "targets", "any"]].to_csv("training.csv", index=False, header=None)
+validation_df[["filename", "targets", "any"]].to_csv("validation.csv", index=False, header=None)
+test_df[["filename", "targets", "any"]].to_csv("testing.csv", index=False, header=None)
