@@ -40,6 +40,7 @@ def check_dicom(row, path=train_data):
         return False
 
     return True
+    
 
 def parallelize_dataframe(df, func, n_cores=8):
     df_split = np.array_split(df, n_cores)
