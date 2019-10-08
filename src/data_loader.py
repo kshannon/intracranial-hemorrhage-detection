@@ -5,6 +5,7 @@ import os
 import numpy as np
 from tensorflow import keras as K
 import pandas as pd
+import cv2
 import pydicom
 import data_flow
 
@@ -24,7 +25,8 @@ class DataGenerator(K.utils.Sequence):
                  channels=2,
                  num_classes=6,
                  shuffle=True,
-                 prediction=False):
+                 prediction=False,
+                 resize=None):
         """
         Initialization
         """
@@ -39,6 +41,7 @@ class DataGenerator(K.utils.Sequence):
         self.df = pd.read_csv(csv_filename, header=None)
         self.indexes = np.arange(len(self.df))
 
+        self.resize = resize
         self.prediction = prediction
         self.shuffle = shuffle
         self.on_epoch_end()
@@ -93,20 +96,31 @@ class DataGenerator(K.utils.Sequence):
             with pydicom.dcmread(filename) as ds:
               
                 img = ds.pixel_array.astype(np.float)
+                img = np.array(img, dtype='uint8')
+
+                
                 
                 # If img not expected shape, then replace it with another image from dataset
-                if (np.std(img) == 0) or (img.shape[0] != self.dims[0]) or (img.shape[1] != self.dims[1]):
-                   print("Filename {} bad.".format(filename))
-                   filename = os.path.join(self.data_path, batch_data[0][0])
-                   # Create a new ds and img object
-                   ds = pydicom.dcmread(filename)
-                   img = ds.pixel_array.astype(np.float)
-                
+                if self.resize == None:
+                    if (np.std(img) == 0) or (img.shape[0] != self.dims[0]) or (img.shape[1] != self.dims[1]):
+                        print("Filename {} bad.".format(filename))
+                        filename = os.path.join(self.data_path, batch_data[0][0])
+                        # Create a new ds and img object
+                        ds = pydicom.dcmread(filename)
+                        img = ds.pixel_array.astype(np.float)
+                        img = np.array(img, dtype='uint8')
+
+                if self.resize != None:
+                    img = cv2.resize(img, self.resize, interpolation = cv2.INTER_AREA)
+
                 X[idx,:,:,0] = self.normalize_img(np.array(img, dtype=float))
                 
                 # with a healthy img & ds we can get the windowing data
                 window_center, window_width, intercept, slope = data_flow.get_windowing(ds)
                 img = data_flow.window_image(ds.pixel_array, window_center, window_width, intercept, slope)
+                img = np.array(img, dtype='uint8')
+                if self.resize != None:
+                    img = cv2.resize(img, self.resize, interpolation = cv2.INTER_AREA)
                 X[idx,:,:,1] = self.window_img(img, -100, 100)
 
             if self.prediction != True:    
