@@ -26,7 +26,10 @@ TEST_CSV = "../submissions/phase1_test_filenames.csv"
 
 # Load the saved model and test data
 MODEL = tf.keras.models.load_model(MODEL_NAME)
-TEST_DATA_GEN = DataGenerator(csv_filename=TEST_CSV, data_path=DATA_DIRECTORY, shuffle=False, batch_size=1, prediction=True)
+BATCH_SIZE = 1
+RESIZE = (224,224) #comment out if not needed and erase param below
+DIMS = (224,224)
+TEST_DATA_GEN = DataGenerator(csv_filename=TEST_CSV, data_path=DATA_DIRECTORY, shuffle=False, batch_size=1, prediction=True, resize=RESIZE, dims=DIMS)
 CUSTOM_OBJECTS = {}
 INTRACRANIAL_HEMORRHAGE_SUBTYPES = [
                                     "epidural",
@@ -48,6 +51,8 @@ def main():
             images, labels = TEST_DATA_GEN.__getitem__(idx)
             prediction = MODEL.predict(images)
             filename = TEST_DATA_GEN.df.iloc[idx,0]
+
+            print(np.squeeze(prediction))
         
             for subtype in zip(INTRACRANIAL_HEMORRHAGE_SUBTYPES, np.squeeze(prediction)):
                 readable_id = filename[:-4] + "_" + subtype[0]
