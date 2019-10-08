@@ -4,9 +4,12 @@
 import os
 import pandas as pd
 import numpy as np
+from tqdm.auto import tqdm
+tqdm.pandas()
 
-csv_directory = "../../"
-data_directory = "../../stage_1_train_images/"
+
+csv_directory = "../../data"
+data_directory = "../../data/stage_1_train_images/"
 
 # Load all of the training files
 train_df = pd.read_csv(os.path.join(csv_directory, "stage_1_train.csv"))
@@ -18,12 +21,14 @@ train_df["type"] = train_df["ID"].apply(lambda st: st.split("_")[2])
 pivot_df = train_df[["Label", "filename", "type"]].drop_duplicates().pivot(
     index="filename", columns="type", values="Label").reset_index()
 
-pivot_df["targets"] = pivot_df.apply(lambda x: np.array([float(x["epidural"]),
+pivot_df["targets"] = pivot_df.progress_apply(lambda x: np.array([float(x["epidural"]),
                                                      float(x["intraparenchymal"]),
                                                      float(x["intraventricular"]),
                                                      float(x["subarachnoid"]),
                                                      float(x["subdural"]),
                                                      float(x["any"])]), axis=1)
+
+pivot_df["any"] = pivot_df.progress_apply(lambda x: float(x["any"]), axis=1)
 
 print(pivot_df.shape)
 print(pivot_df.head(30))
@@ -58,6 +63,6 @@ validation_df = pivot_df[pivot_df.filename.isin(validation_files)]
 test_df = pivot_df[pivot_df.filename.isin(test_files)]
 
 # Save the 3 lists to CSV files for use in Keras
-train_df[["filename", "targets"]].to_csv("training.csv", index=False)
-validation_df[["filename", "targets"]].to_csv("validation.csv", index=False)
-test_df[["filename", "targets"]].to_csv("testing.csv", index=False)
+train_df[["filename", "targets", "any"]].to_csv("training.csv", index=False, header=None)
+validation_df[["filename", "targets", "any"]].to_csv("validation.csv", index=False, header=None)
+test_df[["filename", "targets", "any"]].to_csv("testing.csv", index=False, header=None)

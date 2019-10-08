@@ -80,20 +80,18 @@ img_res = K.layers.Conv2D(128, **params)((K.layers.BatchNormalization(momentum=b
 # Can you guess why we do this? Hint: Where did Flatten go??
 img_res = K.layers.GlobalMaxPooling2D(name='global_pooling') ( img_res )
 
-# What is this? Hint: We have 2 inputs. An image and a number.
-# cnn_out = Concatenate(name='What_happens_here')( [img_res, angle_input] )
-
 dense1 = K.layers.Dropout(0.5)(K.layers.Dense(256, activation = "relu")(img_res)) 
 dense2 = K.layers.Dropout(0.5)(K.layers.Dense(64, activation = "relu")(dense1)) 
-dense3 = K.layers.Dense(num_classes, activation = 'sigmoid')(dense2)
+prediction = K.layers.Dense(num_classes, activation = 'sigmoid')(dense2)
 
-model = K.models.Model(inputs=[inputs], outputs=[dense3])
+model = K.models.Model(inputs=[inputs], outputs=[prediction])
 
 opt = K.optimizers.Adam( lr = 1e-3, beta_1 = .9, beta_2 = .999, decay = 1e-3 )
 
 model.compile(loss = K.losses.categorical_crossentropy, 
                 optimizer = opt, 
                 metrics = ['accuracy'])
+
 
 ############## Specific Model Definition ENDS here ##############
                                                                  

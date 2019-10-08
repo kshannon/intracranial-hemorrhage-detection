@@ -10,6 +10,8 @@ import pydicom
 from tqdm.auto import tqdm
 tqdm.pandas()
 
+from multiprocessing import  Pool
+
 
 TRAIN_CSV_PATH = '../src/training.csv'
 VALIDATE_CSV_PATH = '../src/validation.csv'
@@ -33,20 +35,40 @@ def check_dicom(row, path=train_data):
     if img.shape != (512, 512):
         print('square peg in round hole!')
         return False
+    if np.std(img) == 0:
+        print('Zero std dev')
+        return False
+
     return True
 
+
+def parallelize_dataframe(df, func, n_cores=4):
+    df_split = np.array_split(df, n_cores)
+    pool = Pool(n_cores)
+    df = pd.concat(pool.map(func, df_split))
+    pool.close()
+    pool.join()
+    return df
+
+def add_features_to_df(df):
+    df['bad_actors'] = df.progress_apply(lambda x: check_dicom(x), axis=1)
+
+    return df
+
 # Comment or Uncomment to process TRAINING data
-df_train = pd.read_csv(TRAIN_CSV_PATH)
-df_train['bad_actors'] = df_train.progress_apply(lambda x: check_dicom(x), axis=1)
+df_train = pd.read_csv(TRAIN_CSV_PATH, header=None)
+#df_train = add_features_to_df(df_train)
+df_train = parallelize_dataframe(df_train, add_features_to_df)
 df_train.to_csv('../src/train_flagged.csv', index=False)
 
 # Comment or Uncomment to process VALIDATION data
-df_validate = pd.read_csv(VALIDATE_CSV_PATH)
-df_validate['bad_actors'] = df_validate.progress_apply(lambda x: check_dicom(x), axis=1)
+df_validate = pd.read_csv(VALIDATE_CSV_PATH, header=None)
+#df_validate = add_features_to_df(df_validate)
+df_validate = parallelize_dataframe(df_validate, add_features_to_df)
 df_validate.to_csv('../src/validate_flagged.csv', index=False)
 
 # Comment or Uncomment to process TEST data
-# df_test = pd.read_csv(TEST_CSV_PATH)
+# df_test = pd.read_csv(TEST_CSV_PATH, header=None)
 # df_test['bad_actors'] = df_test.progress_apply(lambda x: check_dicom(x),axis=1)
 # df_test.to_csv('../src/test_flagged.csv', index=False)
 
