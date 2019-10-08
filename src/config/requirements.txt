@@ -2,5 +2,6 @@ pandas
 scipy 
 pydicom
 pillow
+opencv-python
 opencv-contrib-python
 tqdm

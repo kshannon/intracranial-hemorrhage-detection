@@ -26,7 +26,10 @@ TEST_CSV = "../submissions/phase1_test_filenames.csv"
 
 # Load the saved model and test data
 MODEL = tf.keras.models.load_model(MODEL_NAME)
-TEST_DATA_GEN = DataGenerator(csv_filename=TEST_CSV, data_path=DATA_DIRECTORY, shuffle=False, batch_size=1, prediction=True)
+BATCH_SIZE = 1
+RESIZE = (224,224) #comment out if not needed and erase param below
+DIMS = (224,224)
+TEST_DATA_GEN = DataGenerator(csv_filename=TEST_CSV, data_path=DATA_DIRECTORY, shuffle=False, batch_size=1, prediction=True, resize=RESIZE, dims=DIMS)
 CUSTOM_OBJECTS = {}
 INTRACRANIAL_HEMORRHAGE_SUBTYPES = [
                                     "epidural",
@@ -37,31 +40,6 @@ INTRACRANIAL_HEMORRHAGE_SUBTYPES = [
                                     "any"
                                     ]
 
-def normalize_img(img):
-    img = (img - np.mean(img)) / np.std(img)
-    return img
-    
-def window_img(img, min=-50, max=100):
-    return normalize_img(np.clip(img, min, max))
-
-def transform_dicom(filename):
-    # X = np.empty((1, 512, 512, 2))
-    ds = pydicom.dcmread(filename)
-    
-    norm_img = ds.pixel_array.astype(np.float)
-    norm_img = normalize_img(np.array(norm_img, dtype=float)) #X[0,:,:,0]
-    norm_img = norm_img[:,:,np.newaxis]
-
-    window_center, window_width, intercept, slope = data_flow.get_windowing(ds)
-    windowed_img = data_flow.window_image(ds.pixel_array, window_center, window_width, intercept, slope)
-    windowed_img = window_img(windowed_img, -100, 100)
-    windowed_img = windowed_img[:,:,np.newaxis]
-
-    X = np.concatenate((norm_img, windowed_img), axis=2)
-    X = X[np.newaxis,:,:,:]
-
-    return X
-
 
 
 def main():
@@ -69,16 +47,19 @@ def main():
         writer = csv.writer(outfile)
         writer.writerow(['Id','Label'])
 
-        for filename in tqdm(os.listdir(DATA_DIRECTORY)):
-            img = transform_dicom(DATA_DIRECTORY + filename)
-            array = MODEL.predict(img)
-            prediction = np.squeeze(array)
-            print(prediction)
+        for idx in tqdm(TEST_DATA_GEN.indexes):
+            images, labels = TEST_DATA_GEN.__getitem__(idx)
+            prediction = MODEL.predict(images)
+            filename = TEST_DATA_GEN.df.iloc[idx,0]
 
-            for subtype in zip(INTRACRANIAL_HEMORRHAGE_SUBTYPES, prediction):
+            print(np.squeeze(prediction))
+        
+            for subtype in zip(INTRACRANIAL_HEMORRHAGE_SUBTYPES, np.squeeze(prediction)):
                 readable_id = filename[:-4] + "_" + subtype[0]
                 # print(readable_id, subtype[1])
                 writer.writerow([readable_id, subtype[1]])
+
+
 
 if __name__ == "__main__":
     main()
