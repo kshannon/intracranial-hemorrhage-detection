@@ -9,10 +9,6 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 import pydicom
-# import PIL
-# from PIL import Image
-# import gdcm
-# import cv2
 
 
 TRAIN_DATA_PATH = parse_config.TRAIN_DATA_PATH
@@ -82,31 +78,3 @@ def get_windowing(data):
                     data.RescaleIntercept,
                     data.RescaleSlope]
     return [get_first_of_dicom_field_as_int(x) for x in dicom_fields]
-
-
-def create_partitions(paths=CSV_PATHS):
-    '''
-    Builds a dictionary of train/val/test keys and mapped DICOM IDs, returns the obj
-    '''
-    partition = dict()
-    for csv_file in tqdm(paths):
-        data = pd.read_csv(os.path.join(CURRENT_DIR, csv_file), header=0)
-        value = list(data.filename)
-        key = csv_file[:-4]
-        partition[key] = value
-    
-    return partition
-
-def create_labels(paths=CSV_PATHS):
-    '''
-    Builds three dictionaries of DICOM ID keys and a vectorized list of 6 labels mapped to hemorrhage subtype
-    returns a dict object where the keys are the label type (training, etc.) and the value is that label dict
-    '''
-    labels = dict()
-    for csv_file in tqdm(paths):
-        data = pd.read_csv(os.path.join(CURRENT_DIR, csv_file), header=0)
-        values_dict = dict(zip(data.filename, data.targets))
-        key = csv_file[:-4]
-        labels[key] = values_dict
-    
-    return labels
