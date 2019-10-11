@@ -45,9 +45,9 @@ class1_df = master_df.loc[master_df['any'] == 1] # 97103 class 1 (14% of the dat
 class0_df = master_df.loc[master_df['any'] == 0] # 577155 class 0
 assert class0_df.shape[0] + class1_df.shape[0] == master_df.shape[0]
 
-# Shuffle and randomly undersample class 1
+# Shuffle and randomly undersample class 0
 class0_df = class0_df.sample(frac=1, random_state=13).reset_index(drop=True)
-class0_df = class0_df.sample(n=97103, random_state=13)
+class0_df = class0_df.sample(n=class1_df.shape[0], random_state=13) #50/50 split
 
 # Reconstitute balanced dataset, shuffle whole dataset
 balanced_df = pd.concat([class1_df, class0_df], ignore_index=True)
@@ -59,6 +59,6 @@ validation_df = balanced_df.drop(train_df.index)
 test_df = None #TODO if we require or want this,possibly for CV, but for now train/val are fine.
 assert train_df.shape[0] + validation_df.shape[0] == balanced_df.shape[0]
 
-train_df[["filename", "targets", "any"]].to_csv("../src/training.csv", index=False, header=None)
-validation_df[["filename", "targets", "any"]].to_csv("../src/validation.csv", index=False, header=None)
-# test_df[["filename", "targets", "any"]].to_csv("../src/validation.csv", index=False, header=None)
+train_df[["filename", "targets", "any"]].to_csv("../src/training.csv", index=False, header=False)
+validation_df[["filename", "targets", "any"]].to_csv("../src/validation.csv", index=False, header=False)
+# test_df[["filename", "targets", "any"]].to_csv("../src/validation.csv", index=False)
