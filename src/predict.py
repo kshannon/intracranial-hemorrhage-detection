@@ -29,16 +29,20 @@ MODEL = tf.keras.models.load_model(MODEL_NAME)
 BATCH_SIZE = 1
 RESIZE = (224,224) #comment out if not needed and erase param below
 DIMS = (224,224)
-TEST_DATA_GEN = DataGenerator(csv_filename=TEST_CSV, data_path=DATA_DIRECTORY, shuffle=False, batch_size=1, prediction=True, resize=RESIZE, dims=DIMS)
+TEST_DATA_GEN = DataGenerator(csv_filename=TEST_CSV,
+                                data_path=DATA_DIRECTORY,
+                                shuffle=False,
+                                batch_size=1,
+                                prediction=True,
+                                resize=RESIZE,
+                                dims=DIMS)
 CUSTOM_OBJECTS = {}
-INTRACRANIAL_HEMORRHAGE_SUBTYPES = [
-                                    "epidural",
+INTRACRANIAL_HEMORRHAGE_SUBTYPES = ["epidural",
                                     "intraparenchymal",
                                     "intraventricular",
                                     "subarachnoid",
                                     "subdural",
-                                    "any"
-                                    ]
+                                    "any"]
 
 
 
