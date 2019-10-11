@@ -12,6 +12,7 @@ import tensorflow as tf
 import data_flow
 from data_loader import DataGenerator
 import parse_config
+from train import multilabel_loss
 
 if parse_config.USING_RTX_20XX:
     config = tf.ConfigProto()
@@ -25,18 +26,18 @@ DATA_DIRECTORY = data_flow.TEST_DATA_PATH
 TEST_CSV = "../submissions/phase1_test_filenames.csv"
 
 # Load the saved model and test data
-MODEL = tf.keras.models.load_model(MODEL_NAME)
+CUSTOM_OBJECTS = {"multilabel_loss":multilabel_loss}
+MODEL = tf.keras.models.load_model(MODEL_NAME, custom_objects=CUSTOM_OBJECTS)
 BATCH_SIZE = 1
-RESIZE = (224,224) #comment out if not needed and erase param below
-DIMS = (224,224)
+DIMS = (512,512)
+# RESIZE = (224,224) #comment out if not needed and erase param below
 TEST_DATA_GEN = DataGenerator(csv_filename=TEST_CSV,
                                 data_path=DATA_DIRECTORY,
                                 shuffle=False,
                                 batch_size=1,
                                 prediction=True,
-                                resize=RESIZE,
+                                resize=None,
                                 dims=DIMS)
-CUSTOM_OBJECTS = {}
 INTRACRANIAL_HEMORRHAGE_SUBTYPES = ["epidural",
                                     "intraparenchymal",
                                     "intraventricular",

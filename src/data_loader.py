@@ -2,6 +2,7 @@
 # coding: utf-8
 
 import os
+import random
 import numpy as np
 from tensorflow import keras as K
 import pandas as pd
@@ -29,7 +30,8 @@ class DataGenerator(K.utils.Sequence):
                  num_classes=6,
                  shuffle=True,
                  prediction=False,
-                 resize=None):
+                 resize=None,
+                 augment=False):
         """
         Class attribute initialization
         """
@@ -42,6 +44,7 @@ class DataGenerator(K.utils.Sequence):
         self.indexes = np.arange(len(self.df))
         self.resize = resize
         self.prediction = prediction
+        self.augment = augment
         self.shuffle = shuffle
         self.on_epoch_end()
 
@@ -82,7 +85,7 @@ class DataGenerator(K.utils.Sequence):
         Retrieves windowing data from dicom metadata
         Arguments:
             data {pydicom metadata obj} -- object returned from pydicom dcmread() 
-        Attribution: This code comes from Richard McKinley's Kaggle kernel
+        Attribution: This code inspired from Richard McKinley's Kaggle kernel
         """
         if type(data.RescaleIntercept) == pydicom.multival.MultiValue:
             intercept = int(data.RescaleIntercept[0])
@@ -113,6 +116,24 @@ class DataGenerator(K.utils.Sequence):
         return img
 
 
+    def rotate_img(self, X):
+        return X
+    
+    
+    def flip_img(self, X):
+        return X
+
+
+    def augment_img(self, X):
+        """
+        Given a normalized and windowed 3 channel image, apply random augmentation
+        """
+        #TODO: add random scheme for augmentation selection
+        X = self.flip_img(X)
+        X = self.rotate_img(X)
+        return X
+
+
     def __data_generation(self, indexes):
         """
         Generates data containing batch_size samples
@@ -140,6 +161,10 @@ class DataGenerator(K.utils.Sequence):
                 X[idx,:,:,0] = self.normalize_img(np.array(tissue_window, dtype=float))
                 X[idx,:,:,1] = self.normalize_img(np.array(brain_window, dtype=float))
                 X[idx,:,:,2] = self.normalize_img(np.array(blood_window, dtype=float))
+
+                # data augmentation gauntlet
+                if self.augment == True:
+                    X = self.augment_img(X)
 
             # If doing inference/prediction do not attempt to pass y value, leave as empty
             if self.prediction != True:    

@@ -20,10 +20,11 @@ if parse_config.USING_RTX_20XX:
 
 MODEL_NAME = sys.argv[1]
 DATA_DIRECTORY = data_flow.TRAIN_DATA_PATH
-TRAIN_CSV = parse_config.VALIDATE_CSV
+TRAIN_CSV = parse_config.TRAIN_CSV
 VALIDATE_CSV = parse_config.VALIDATE_CSV
 TENSORBOARD_DIR = os.path.join('tensorboards/', sys.argv[1])
-CLASS_WEIGHTS = [0.16, 0.16, 0.16, 0.16, 0.16, 0.2]
+# CLASS_WEIGHTS = [0.16, 0.16, 0.16, 0.16, 0.16, 0.2]
+CLASS_WEIGHTS = [0.1, 0.1, 0.1, 0.1, 0.1, 0.2]
 BATCH_SIZE = 16
 EPOCHS = 15 
 DIMS = (512,512)
@@ -34,12 +35,14 @@ training_data_gen = DataGenerator(csv_filename=TRAIN_CSV,
                                     data_path=DATA_DIRECTORY,
                                     batch_size=BATCH_SIZE,
                                     resize=None,
-                                    dims=DIMS)
+                                    dims=DIMS,
+                                    augment=True)
 validation_data_gen = DataGenerator(csv_filename=VALIDATE_CSV,
                                     data_path=DATA_DIRECTORY,
                                     batch_size=BATCH_SIZE,
                                     resize=None,
-                                    dims=DIMS)
+                                    dims=DIMS,
+                                    augment=False)
 
 
 ######################  CALLBACKS  #####################
