@@ -2,67 +2,63 @@
 # Custom module for dealing with global project paths and functions related to injesting and accessing raw data
 
 import os
+import sys
 import pandas as pd
 import numpy as np
 from tqdm.auto import tqdm
 tqdm.pandas()
 
 
-csv_directory = "../../data"
-data_directory = "../../data/stage_1_train_images/"
+CSV_DIRECTORY = "../../data"
+DATA_DIRECTORY = "../../data/stage_1_train_images/"
+DUPLICATES = ['ID_a64d5deed.dcm','ID_921490062.dcm','ID_489ae4179.dcm','ID_854fba667.dcm','ID_854fba667.dcm']
+MASTER_CSV = os.path.join(CSV_DIRECTORY, "master_training.csv")
 
-# Load all of the training files
-train_df = pd.read_csv(os.path.join(csv_directory, "stage_1_train.csv"))
+if os.path.exists(MASTER_CSV):
+    master_df = pd.read_csv(MASTER_CSV)
+else:
+    train_df = pd.read_csv(os.path.join(CSV_DIRECTORY, "stage_1_train.csv"))
+    train_df["filename"] = train_df["ID"].apply(lambda st: "ID_" + st.split("_")[1] + ".dcm")
+    train_df["type"] = train_df["ID"].apply(lambda st: st.split("_")[2])
 
-train_df["filename"] = train_df["ID"].apply(lambda st: "ID_" + st.split("_")[1] + ".dcm")
-train_df["type"] = train_df["ID"].apply(lambda st: st.split("_")[2])
+    # New pandas dataframe with the target labels organized into a numpy array
+    master_df = train_df[["Label", "filename", "type"]]\
+                    .drop_duplicates()\
+                    .pivot(index="filename", columns="type", values="Label")\
+                    .reset_index()
 
-# New pandas dataframe with the target labels organized into a numpy array
-pivot_df = train_df[["Label", "filename", "type"]].drop_duplicates().pivot(
-    index="filename", columns="type", values="Label").reset_index()
+    master_df["targets"] = master_df.progress_apply(lambda x: np.array([float(x["epidural"]),
+                                                                    float(x["intraparenchymal"]),
+                                                                    float(x["intraventricular"]),
+                                                                    float(x["subarachnoid"]),
+                                                                    float(x["subdural"]),
+                                                                    float(x["any"])]), axis=1)
 
-pivot_df["targets"] = pivot_df.progress_apply(lambda x: np.array([float(x["epidural"]),
-                                                     float(x["intraparenchymal"]),
-                                                     float(x["intraventricular"]),
-                                                     float(x["subarachnoid"]),
-                                                     float(x["subdural"]),
-                                                     float(x["any"])]), axis=1)
+    master_df["any"] = master_df.progress_apply(lambda x: float(x["any"]), axis=1)
 
-pivot_df["any"] = pivot_df.progress_apply(lambda x: float(x["any"]), axis=1)
+    # save the master df as a csv
+    master_df.to_csv(os.path.join(CSV_DIRECTORY, "master_training.csv"), index=False)
+    print("Created and saved a master training CSV to disk. You're welcome...")
 
-print(pivot_df.shape)
-print(pivot_df.head(30))
+# We have a master DF, lets create two sub DFs for 
+class1_df = master_df.loc[master_df['any'] == 1] # 97103 class 1 (14% of the data)
+class0_df = master_df.loc[master_df['any'] == 0] # 577155 class 0
+assert class0_df.shape[0] + class1_df.shape[0] == master_df.shape[0]
 
-# Do the train, validate, test splits
+# Shuffle and randomly undersample class 1
+class0_df = class0_df.sample(frac=1, random_state=13).reset_index(drop=True)
+class0_df = class0_df.sample(n=97103, random_state=13)
 
-np.random.seed(816)
-all_training_files = os.listdir(data_directory)
-# Shuffle files
-np.random.shuffle(all_training_files)
-number_training_files = len(all_training_files)
+# Reconstitute balanced dataset, shuffle whole dataset
+balanced_df = pd.concat([class1_df, class0_df], ignore_index=True)
+balanced_df = balanced_df.sample(frac=1, random_state=13).reset_index(drop=True)
 
-# Now we have the actual filenames from the data directory shuffled
-# So first 80% are training
-# Next 10% are validation
-# Last 10% are testing
-train_percentage = 0.80
-validation_percentage = 0.10
-testing_percentage = 1 - train_percentage - validation_percentage
+# Create random train/validation sets and save to csv
+train_df = balanced_df.sample(frac=0.85, random_state=13) #random state is a seed value
+validation_df = balanced_df.drop(train_df.index)
+test_df = None #TODO if we require or want this,possibly for CV, but for now train/val are fine.
+assert train_df.shape[0] + validation_df.shape[0] == balanced_df.shape[0]
 
-# Get the filenames for each group
-train_idx = int(number_training_files*train_percentage)
-train_files = all_training_files[0:train_idx]
-validate_idx = int(number_training_files*(train_percentage+validation_percentage))
-validation_files = all_training_files[train_idx:validate_idx]
-test_files = all_training_files[validate_idx:]
-
-# Get the filename/target label pairs for each group
-# Note that the "isin" ensures that we have actual files to load
-train_df = pivot_df[pivot_df.filename.isin(train_files)]
-validation_df = pivot_df[pivot_df.filename.isin(validation_files)]
-test_df = pivot_df[pivot_df.filename.isin(test_files)]
-
-# Save the 3 lists to CSV files for use in Keras
-train_df[["filename", "targets", "any"]].to_csv("training.csv", index=False, header=None)
-validation_df[["filename", "targets", "any"]].to_csv("validation.csv", index=False, header=None)
-test_df[["filename", "targets", "any"]].to_csv("testing.csv", index=False, header=None)
+train_df[["filename", "targets", "any"]].to_csv("../src/training.csv", index=False, header=None)
+validation_df[["filename", "targets", "any"]].to_csv("../src/validation.csv", index=False, header=None)
+# test_df[["filename", "targets", "any"]].to_csv("../src/validation.csv", index=False, header=None)
