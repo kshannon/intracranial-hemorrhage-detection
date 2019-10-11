@@ -15,32 +15,31 @@ DATA_DIRECTORY = data_flow.TRAIN_DATA_PATH
 
 class DataGenerator(K.utils.Sequence):
     """
-    Generates data for Keras
+    Generates data for Keras, including reading DICOM images and preprocessing/windowing images
+    To resize images, set resize=True and pass new dims, e.g. dims=(256,256)
+    To use the data lloader for prediction/inference pass prediction=True, this will pass along 
+    a np.empty object for y, which is eventually discarded.
     """
     def __init__(self,
                  csv_filename,
                  data_path,
                  batch_size=32,
                  dims=(512,512),
-                 channels=2,
+                 channels=3,
                  num_classes=6,
                  shuffle=True,
                  prediction=False,
                  resize=None):
         """
-        Initialization
+        Class attribute initialization
         """
-
         self.batch_size = batch_size
         self.dims = dims
         self.channels = channels
         self.num_classes = num_classes
-
         self.data_path = data_path
-
         self.df = pd.read_csv(csv_filename, header=None)
         self.indexes = np.arange(len(self.df))
-
         self.resize = resize
         self.prediction = prediction
         self.shuffle = shuffle
@@ -60,27 +59,59 @@ class DataGenerator(K.utils.Sequence):
         # Generate data
         X, y = self.__data_generation(indexes)
         return X, y
-        
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, type, value, traceback):
-        return isinstance(value, TypeError)
 
     def on_epoch_end(self):
         """
-        Updates indexes after each epoch
+        Updates (shuffles) indexes after each epoch
         """
         if self.shuffle == True:
             np.random.shuffle(self.indexes)
 
+
     def normalize_img(self, img):
+        """
+        Return normalized numpy img array, plain & simple
+        """
         img = (img - np.mean(img)) / np.std(img)
         return img
         
-    def window_img(self, img, min=-50, max=100):
-        return self.normalize_img(np.clip(img, min, max))
+
+    def hounsfield_translation(self, data):
+        """
+        Retrieves windowing data from dicom metadata
+        Arguments:
+            data {pydicom metadata obj} -- object returned from pydicom dcmread() 
+        Attribution: This code comes from Richard McKinley's Kaggle kernel
+        """
+        if type(data.RescaleIntercept) == pydicom.multival.MultiValue:
+            intercept = int(data.RescaleIntercept[0])
+        else:
+            intercept = int(data.RescaleIntercept)
+
+        if type(data.RescaleSlope) == pydicom.multival.MultiValue:
+            slope = int(data.RescaleSlope[0])
+        else:
+            slope = int(data.RescaleSlope)
+        
+        return intercept, slope
+
+
+    def window_image(self, img, window_center, window_width, intercept, slope):
+        """
+        Given a CT scan img apply a windowing to the image
+        Arguments:
+            img {np.array} -- array of a dicom img processed by pydicom.dcmread()
+            window_center,window_width,intercept,slope {floats} -- values provided by dicom file metadata
+        Attribution: This code comes from Richard McKinley's Kaggle kernel
+        """
+        img = (img * slope + intercept)
+        img_min = window_center - window_width // 2
+        img_max = window_center + window_width // 2
+        img[img < img_min] = img_min
+        img[img > img_max] = img_max
+        return img
+
 
     def __data_generation(self, indexes):
         """
@@ -97,32 +128,20 @@ class DataGenerator(K.utils.Sequence):
               
                 img = ds.pixel_array.astype(np.float)
                 img = np.array(img, dtype='uint8')
-
-                
-                
-                # If img not expected shape, then replace it with another image from dataset
-                if self.resize == None:
-                    if (np.std(img) == 0) or (img.shape[0] != self.dims[0]) or (img.shape[1] != self.dims[1]):
-                        print("Filename {} bad.".format(filename))
-                        filename = os.path.join(self.data_path, batch_data[0][0])
-                        # Create a new ds and img object
-                        ds = pydicom.dcmread(filename)
-                        img = ds.pixel_array.astype(np.float)
-                        img = np.array(img, dtype='uint8')
-
                 if self.resize != None:
                     img = cv2.resize(img, self.resize, interpolation = cv2.INTER_AREA)
 
-                X[idx,:,:,0] = self.normalize_img(np.array(img, dtype=float))
-                
-                # with a healthy img & ds we can get the windowing data
-                window_center, window_width, intercept, slope = data_flow.get_windowing(ds)
-                img = data_flow.window_image(ds.pixel_array, window_center, window_width, intercept, slope)
-                img = np.array(img, dtype='uint8')
-                if self.resize != None:
-                    img = cv2.resize(img, self.resize, interpolation = cv2.INTER_AREA)
-                X[idx,:,:,1] = self.window_img(img, -100, 100)
+                intercept, slope = self.hounsfield_translation(ds)
 
+                tissue_window = self.window_image(img, 40, 40, intercept, slope)
+                brain_window = self.window_image(img, 50, 100, intercept, slope)
+                blood_window = self.window_image(img, 60, 40, intercept, slope)
+                
+                X[idx,:,:,0] = self.normalize_img(np.array(tissue_window, dtype=float))
+                X[idx,:,:,1] = self.normalize_img(np.array(brain_window, dtype=float))
+                X[idx,:,:,2] = self.normalize_img(np.array(blood_window, dtype=float))
+
+            # If doing inference/prediction do not attempt to pass y value, leave as empty
             if self.prediction != True:    
                 y[idx,] = [float(x) for x in batch_data[idx][1][1:-1].split(" ")]
         
