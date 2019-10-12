@@ -12,16 +12,16 @@ import tensorflow as tf
 import data_flow
 from data_loader import DataGenerator
 import parse_config
-from train import multilabel_loss
+from custom_loss import multilabel_loss 
+
 
 if parse_config.USING_RTX_20XX:
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
     tf.keras.backend.set_session(tf.Session(config=config))
 
-
 MODEL_NAME = os.path.join('../models/', sys.argv[1] + '.pb')
-SUBMISSION_NAME = os.path.join('../submissions/', sys.argv[1]+'_predictions.csv')
+SUBMISSION_NAME = os.path.join('../submissions/', sys.argv[1]+'-predictions.csv')
 DATA_DIRECTORY = data_flow.TEST_DATA_PATH
 TEST_CSV = "../submissions/phase1_test_filenames.csv"
 
