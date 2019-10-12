@@ -6,10 +6,13 @@ import tensorflow as tf
 from tensorflow import keras as K
 from tensorflow import ConfigProto
 from tensorflow import InteractiveSession
+from tensorflow.keras.metrics import Precision, Recall, CategoricalCrossentropy
 from data_loader import DataGenerator
 import data_flow
 import parse_config
 from model_defs import *
+from custom_loss import multilabel_loss
+from custom_callbacks import step_decay_schedule
 
 
 if parse_config.USING_RTX_20XX:
@@ -25,7 +28,7 @@ VALIDATE_CSV = parse_config.VALIDATE_CSV
 TENSORBOARD_DIR = os.path.join('tensorboards/', sys.argv[1])
 # CLASS_WEIGHTS = [0.16, 0.16, 0.16, 0.16, 0.16, 0.2]
 CLASS_WEIGHTS = [0.1, 0.1, 0.1, 0.1, 0.1, 0.2]
-BATCH_SIZE = 16
+BATCH_SIZE = 32
 EPOCHS = 15 
 DIMS = (512,512)
 # RESIZE = (224,224) #comment out if not needed and erase param below
@@ -45,40 +48,21 @@ validation_data_gen = DataGenerator(csv_filename=VALIDATE_CSV,
                                     augment=False)
 
 
-######################  CALLBACKS  #####################
+#################################  CALLBACKS  ################################
 
 # Saved models
 checkpoint = K.callbacks.ModelCheckpoint(os.path.join('../models/', sys.argv[1] + '.pb'), verbose=1, save_best_only=True)
                                                        
 # TensorBoard    
 tb_logs = K.callbacks.TensorBoard(log_dir=TENSORBOARD_DIR,
-                                    update_freq='batch')
+                                    update_freq='batch',
+                                    profile_batch=0)
 
 # Interrupt training if `val_loss` stops improving for over 2 epochs                                    
 early_stop = K.callbacks.EarlyStopping(patience=2, monitor='val_loss')
 
-
-######################  CUSTOM LOSS FUNCTIONS  ##################### 
-# multilabel loss (optional weighted)
-def multilabel_loss(class_weights=None):
-    def multilabel_loss_inner(y_true, logits):
-        logits = tf.cast(logits, tf.float32)
-        y_true = tf.cast(y_true, tf.float32)
-        
-        # compute single class cross entropies:
-        contributions = tf.maximum(logits, 0) - tf.multiply(logits, y_true) + tf.log(1.+tf.exp(-tf.abs(logits)))
-
-        # contributions have shape (n_samples, n_classes), we need to reduce with mean over samples to obtain single class xentropies:
-        single_class_cross_entropies = tf.reduce_mean(contributions, axis=0)
-
-        # if None, weight equally:
-        if class_weights is None:
-            loss = tf.reduce_mean(single_class_cross_entropies)
-        else:
-            weights = tf.constant(class_weights, dtype=tf.float32)
-            loss = tf.reduce_sum(tf.multiply(weights, single_class_cross_entropies))
-        return loss
-    return multilabel_loss_inner
+# Stepped learning rate decay
+lr_sched = step_decay_schedule(initial_lr=1e-4, decay_factor=0.75, step_size=2)
 
 
 ################################################################################# 
@@ -130,17 +114,18 @@ model = K.models.Model(inputs=[inputs], outputs=[prediction])
 
 opt = K.optimizers.Adam(lr = 1e-3, beta_1 = .9, beta_2 = .999, decay = 1e-3)
 
-model.compile(loss = K.losses.categorical_crossentropy, 
-                optimizer = opt, 
-                metrics = [multilabel_loss(class_weights=CLASS_WEIGHTS)])
+model.compile(loss=multilabel_loss(class_weights=CLASS_WEIGHTS),
+                optimizer=opt,
+                metrics = [CategoricalCrossentropy(), Precision(), Recall()])
 
 ################################################################################# 
 #######################  YOUR MODEL DEFINITION ENDs HERE  #######################
 #################################################################################
-
+#K.losses.categorical_crossentropy, 
 
 # Here we go...
 model.fit_generator(training_data_gen, 
                     validation_data=validation_data_gen, 
-                    callbacks=[checkpoint, tb_logs, early_stop],
+                    callbacks=[lr_sched, checkpoint, tb_logs, early_stop],
                     epochs=EPOCHS)
+
