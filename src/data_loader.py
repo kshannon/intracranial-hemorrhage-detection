@@ -30,7 +30,7 @@ class DataGenerator(K.utils.Sequence):
                  num_classes=6,
                  shuffle=True,
                  prediction=False,
-                 resize=None,
+                 resize=False,
                  augment=False):
         """
         Class attribute initialization
@@ -149,8 +149,8 @@ class DataGenerator(K.utils.Sequence):
               
                 img = ds.pixel_array.astype(np.float)
                 img = np.array(img, dtype='uint8')
-                if self.resize != None:
-                    img = cv2.resize(img, self.resize, interpolation = cv2.INTER_AREA)
+                if self.resize:
+                    img = cv2.resize(img, self.dims, interpolation = cv2.INTER_AREA)
 
                 intercept, slope = self.hounsfield_translation(ds)
 
@@ -163,11 +163,11 @@ class DataGenerator(K.utils.Sequence):
                 X[idx,:,:,2] = self.normalize_img(np.array(blood_window, dtype=float))
 
                 # data augmentation gauntlet
-                if self.augment == True:
+                if self.augment:
                     X = self.augment_img(X)
 
             # If doing inference/prediction do not attempt to pass y value, leave as empty
-            if self.prediction != True:    
+            if not self.prediction:    
                 y[idx,] = [float(x) for x in batch_data[idx][1][1:-1].split(" ")]
         
         
