@@ -76,8 +76,8 @@ class DataGenerator(K.utils.Sequence):
         """
         Return normalized numpy img array, plain & simple
         """
-        img = (img - np.mean(img)) / np.std(img)
-        return img
+        # img = (img - np.mean(img)) / np.std(img)
+        return 2 * (img - img.min())/(img.max() - img.min()) - 1
         
 
     def hounsfield_translation(self, data):
@@ -147,17 +147,19 @@ class DataGenerator(K.utils.Sequence):
             filename = os.path.join(self.data_path, batch_data[idx][0])
             with pydicom.dcmread(filename) as ds:
               
+                intercept, slope = self.hounsfield_translation(ds)
                 img = ds.pixel_array.astype(np.float)
                 img = np.array(img, dtype='uint8')
-                if self.resize:
-                    img = cv2.resize(img, self.dims, interpolation = cv2.INTER_AREA)
-
-                intercept, slope = self.hounsfield_translation(ds)
 
                 tissue_window = self.window_image(img, 40, 40, intercept, slope)
                 brain_window = self.window_image(img, 50, 100, intercept, slope)
                 blood_window = self.window_image(img, 60, 40, intercept, slope)
-                
+
+                if self.resize:
+                    tissue_window = cv2.resize(tissue_window, self.dims, interpolation = cv2.INTER_AREA)
+                    brain_window = cv2.resize(brain_window, self.dims, interpolation = cv2.INTER_AREA)
+                    blood_window = cv2.resize(blood_window, self.dims, interpolation = cv2.INTER_AREA)
+
                 X[idx,:,:,0] = self.normalize_img(np.array(tissue_window, dtype=float))
                 X[idx,:,:,1] = self.normalize_img(np.array(brain_window, dtype=float))
                 X[idx,:,:,2] = self.normalize_img(np.array(blood_window, dtype=float))
