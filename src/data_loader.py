@@ -31,6 +31,7 @@ class DataGenerator(K.utils.Sequence):
                  shuffle=True,
                  prediction=False,
                  resize=False,
+                 window=False,
                  augment=False):
         """
         Class attribute initialization
@@ -42,6 +43,7 @@ class DataGenerator(K.utils.Sequence):
         self.data_path = data_path
         self.df = pd.read_csv(csv_filename, header=None)
         self.indexes = np.arange(len(self.df))
+        self.window = window
         self.resize = resize
         self.prediction = prediction
         self.augment = augment
@@ -151,18 +153,25 @@ class DataGenerator(K.utils.Sequence):
                 img = ds.pixel_array.astype(np.float)
                 img = np.array(img, dtype='uint8')
 
-                tissue_window = self.window_image(img, 40, 40, intercept, slope)
-                brain_window = self.window_image(img, 50, 100, intercept, slope)
-                blood_window = self.window_image(img, 60, 40, intercept, slope)
+                if self.window:
+                    tissue_window = self.window_image(img, 40, 40, intercept, slope)
+                    brain_window = self.window_image(img, 50, 100, intercept, slope)
+                    blood_window = self.window_image(img, 60, 40, intercept, slope)
+                    if self.resize:
+                        tissue_window = cv2.resize(tissue_window, self.dims, interpolation = cv2.INTER_AREA)
+                        brain_window = cv2.resize(brain_window, self.dims, interpolation = cv2.INTER_AREA)
+                        blood_window = cv2.resize(blood_window, self.dims, interpolation = cv2.INTER_AREA)
 
-                if self.resize:
-                    tissue_window = cv2.resize(tissue_window, self.dims, interpolation = cv2.INTER_AREA)
-                    brain_window = cv2.resize(brain_window, self.dims, interpolation = cv2.INTER_AREA)
-                    blood_window = cv2.resize(blood_window, self.dims, interpolation = cv2.INTER_AREA)
+                    X[idx,:,:,0] = self.normalize_img(np.array(tissue_window, dtype=float))
+                    X[idx,:,:,1] = self.normalize_img(np.array(brain_window, dtype=float))
+                    X[idx,:,:,2] = self.normalize_img(np.array(blood_window, dtype=float))
 
-                X[idx,:,:,0] = self.normalize_img(np.array(tissue_window, dtype=float))
-                X[idx,:,:,1] = self.normalize_img(np.array(brain_window, dtype=float))
-                X[idx,:,:,2] = self.normalize_img(np.array(blood_window, dtype=float))
+                if not self.window:
+                    img = (img * slope + intercept)
+                    #TODO: just make this check if img size is == (512,512) get rid of resize=True attribute
+                    if self.resize:
+                        img = cv2.resize(img, self.dims, interpolation=cv2.INTER_LINEAR)
+                    X[idx,] = np.stack((self.normalize_img(np.array(img, dtype=float)),)*3, axis=-1)
 
                 # data augmentation gauntlet
                 if self.augment:

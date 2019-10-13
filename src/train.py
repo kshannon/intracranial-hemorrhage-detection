@@ -40,13 +40,15 @@ training_data_gen = DataGenerator(csv_filename=TRAIN_CSV,
                                     batch_size=BATCH_SIZE,
                                     resize=RESIZE,
                                     dims=DIMS,
-                                    augment=True)
+                                    augment=True,
+                                    window=False)
 validation_data_gen = DataGenerator(csv_filename=VALIDATE_CSV,
                                     data_path=DATA_DIRECTORY,
                                     batch_size=BATCH_SIZE,
                                     resize=RESIZE,
                                     dims=DIMS,
-                                    augment=False)
+                                    augment=False,
+                                    window=False)
 
 
 #################################  CALLBACKS  ################################
