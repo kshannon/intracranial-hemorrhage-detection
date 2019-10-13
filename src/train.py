@@ -62,8 +62,12 @@ tb_logs = K.callbacks.TensorBoard(log_dir=TENSORBOARD_DIR,
 # Interrupt training if `val_loss` stops improving for over 2 epochs                                    
 early_stop = K.callbacks.EarlyStopping(patience=2, monitor='val_loss')
 
-# Stepped learning rate decay
-lr_sched = callbks.step_decay_schedule(initial_lr=1e-4, decay_factor=0.75, step_size=2)
+# Learning Rate
+learning_rate = 5e-4
+decay_rate = 0.8
+decay_steps = 1
+# lr_sched = callbks.step_decay_schedule(initial_lr=1e-4, decay_factor=0.75, step_size=2)
+lr_sched = K.callbacks.LearningRateScheduler(lambda epoch: learning_rate * pow(decay_rate, np.floor(epoch / decay_steps)))
 
 
 ################################################################################# 
@@ -79,22 +83,22 @@ bn_momentum = 0.99
 
 # inputs = K.layers.Input([height, width, num_chan_in], name="DICOM")
 
-resnet_model = ResNet50(input_shape=[height, width, num_chan_in],
+resnet_model = ResNet50(input_shape=[height, width, num_chan_in], 
                         weights='imagenet',
                         include_top=False,
-                        pooling='avg',
                         utils = K.utils,
                         models = K.models,
                         layers = K.layers,
                         backend = K.backend)
+                        # pooling='avg'
 
-# global_avg_pool = K.layers.GlobalAveragePooling2D(name='avg_pool')(resnet_model.output)
-hemorrhage_output = K.layers.Dense(num_classes, activation="sigmoid", name='dense_output')(resnet_model.output)
+global_avg_pool = K.layers.GlobalAveragePooling2D(name='avg_pool')(resnet_model.output)
+hemorrhage_output = K.layers.Dense(num_classes, activation="sigmoid", name='dense_output')(global_avg_pool)
 
 model = K.models.Model(inputs=resnet_model.input, outputs=hemorrhage_output)
 
 model.compile(loss=loss.weighted_log_loss,
-                optimizer=K.optimizers.Adam(lr = 1e-3, beta_1 = .9, beta_2 = .999, decay = 1e-3),
+                optimizer=K.optimizers.Adam(lr = 5e-4, beta_1 = .9, beta_2 = .999, decay = 0.8),
                 metrics=[loss.weighted_loss])
 
 ################################################################################# 
