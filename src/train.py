@@ -29,23 +29,31 @@ TRAIN_CSV = parse_config.TRAIN_CSV
 VALIDATE_CSV = parse_config.VALIDATE_CSV
 TENSORBOARD_DIR = os.path.join('tensorboards/', sys.argv[1])
 CLASS_WEIGHTS = [1.0, 1.0, 1.0, 1.0, 1.0, 2.0]
-BATCH_SIZE = 32
-EPOCHS = 15 
-DIMS = (224,224) #512,512 default
+BATCH_SIZE = 8
+EPOCHS = 15
+
+num_chan_in = 3
+height = 512 #224
+width = 512 #224
+
+DIMS = (height,width) #512,512 default
 RESIZE = True
 
+num_classes = 1
 
 training_data_gen = DataGenerator(csv_filename=TRAIN_CSV,
                                     data_path=DATA_DIRECTORY,
                                     batch_size=BATCH_SIZE,
                                     resize=RESIZE,
                                     dims=DIMS,
-                                    augment=True,
+                                    num_classes=num_classes,
+                                    augment=True,train=True,
                                     window=False)
 validation_data_gen = DataGenerator(csv_filename=VALIDATE_CSV,
                                     data_path=DATA_DIRECTORY,
                                     batch_size=BATCH_SIZE,
                                     resize=RESIZE,
+                                    num_classes=num_classes,
                                     dims=DIMS,
                                     augment=False,
                                     window=False)
@@ -55,13 +63,13 @@ validation_data_gen = DataGenerator(csv_filename=VALIDATE_CSV,
 
 # Saved models
 checkpoint = K.callbacks.ModelCheckpoint(os.path.join('../models/', sys.argv[1] + '.pb'), verbose=1, save_best_only=True)
-                                                       
-# TensorBoard    
+
+# TensorBoard
 tb_logs = K.callbacks.TensorBoard(log_dir=TENSORBOARD_DIR,
                                     update_freq='batch',
                                     profile_batch=0)
 
-# Interrupt training if `val_loss` stops improving for over 2 epochs                                    
+# Interrupt training if `val_loss` stops improving for over 2 epochs
 early_stop = K.callbacks.EarlyStopping(patience=2, monitor='val_loss')
 
 # Learning Rate
@@ -72,20 +80,17 @@ decay_steps = 1
 lr_sched = K.callbacks.LearningRateScheduler(lambda epoch: learning_rate * pow(decay_rate, np.floor(epoch / decay_steps)))
 
 
-################################################################################# 
+#################################################################################
 ######################  YOUR MODEL DEFINITION GOES IN HERE  #####################
 #################################################################################
 
 
-num_chan_in = 3
-height = 224
-width = 224
-num_classes = 6
+
 bn_momentum = 0.99
 
 # inputs = K.layers.Input([height, width, num_chan_in], name="DICOM")
 
-resnet_model = ResNet50(input_shape=[height, width, num_chan_in], 
+resnet_model = ResNet50(input_shape=[height, width, num_chan_in],
                         weights='imagenet',
                         include_top=False,
                         utils = K.utils,
@@ -99,18 +104,17 @@ hemorrhage_output = K.layers.Dense(num_classes, activation="sigmoid", name='dens
 
 model = K.models.Model(inputs=resnet_model.input, outputs=hemorrhage_output)
 
-model.compile(loss=loss.weighted_log_loss,
+model.compile(loss="binary_crossentropy",
                 optimizer=K.optimizers.Adam(lr = 5e-4, beta_1 = .9, beta_2 = .999, decay = 0.8),
-                metrics=[loss.weighted_loss])
+                metrics=["accuracy"])
 
-################################################################################# 
+#################################################################################
 #######################  YOUR MODEL DEFINITION ENDs HERE  #######################
 #################################################################################
-#K.losses.categorical_crossentropy, 
+#K.losses.categorical_crossentropy,
 
 # Here we go...
-model.fit_generator(training_data_gen, 
-                    validation_data=validation_data_gen, 
+model.fit_generator(training_data_gen,
+                    validation_data=validation_data_gen,
                     callbacks=[lr_sched, checkpoint, tb_logs, early_stop],
                     epochs=EPOCHS)
-

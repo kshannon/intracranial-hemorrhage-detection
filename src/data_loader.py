@@ -18,7 +18,7 @@ class DataGenerator(K.utils.Sequence):
     """
     Generates data for Keras, including reading DICOM images and preprocessing/windowing images
     To resize images, set resize=True and pass new dims, e.g. dims=(256,256)
-    To use the data lloader for prediction/inference pass prediction=True, this will pass along 
+    To use the data lloader for prediction/inference pass prediction=True, this will pass along
     a np.empty object for y, which is eventually discarded.
     """
     def __init__(self,
@@ -28,6 +28,7 @@ class DataGenerator(K.utils.Sequence):
                  dims=(512,512),
                  channels=3,
                  num_classes=6,
+                 train=False,
                  shuffle=True,
                  prediction=False,
                  resize=False,
@@ -41,8 +42,23 @@ class DataGenerator(K.utils.Sequence):
         self.channels = channels
         self.num_classes = num_classes
         self.data_path = data_path
-        self.df = pd.read_csv(csv_filename, header=None)
+        df = pd.read_csv(csv_filename, header=None)
+
+
+        if train:
+            any1 = df.loc[df[2] == 1]
+            len_any1 = len(any1)
+            any0 = df.loc[df[2] == 0]
+            any0 = any0.sample(len_any1)
+
+            df = pd.concat([any0,any1]).reset_index(drop=True)
+            self.df = df.sample(frac=1).reset_index(drop=True)
+
+        else:
+            self.df = df
+
         self.indexes = np.arange(len(self.df))
+
         self.window = window
         self.resize = resize
         self.prediction = prediction
@@ -80,13 +96,13 @@ class DataGenerator(K.utils.Sequence):
         """
         # img = (img - np.mean(img)) / np.std(img)
         return 2 * (img - img.min())/(img.max() - img.min()) - 1
-        
+
 
     def hounsfield_translation(self, data):
         """
         Retrieves windowing data from dicom metadata
         Arguments:
-            data {pydicom metadata obj} -- object returned from pydicom dcmread() 
+            data {pydicom metadata obj} -- object returned from pydicom dcmread()
         Attribution: This code inspired from Richard McKinley's Kaggle kernel
         """
         if type(data.RescaleIntercept) == pydicom.multival.MultiValue:
@@ -98,7 +114,7 @@ class DataGenerator(K.utils.Sequence):
             slope = int(data.RescaleSlope[0])
         else:
             slope = int(data.RescaleSlope)
-        
+
         return intercept, slope
 
 
@@ -120,8 +136,8 @@ class DataGenerator(K.utils.Sequence):
 
     def rotate_img(self, X):
         return X
-    
-    
+
+
     def flip_img(self, X):
         return X
 
@@ -148,7 +164,7 @@ class DataGenerator(K.utils.Sequence):
         for idx in range(self.batch_size):
             filename = os.path.join(self.data_path, batch_data[idx][0])
             with pydicom.dcmread(filename) as ds:
-              
+
                 intercept, slope = self.hounsfield_translation(ds)
                 img = ds.pixel_array.astype(np.float)
                 img = np.array(img, dtype='uint8')
@@ -178,16 +194,16 @@ class DataGenerator(K.utils.Sequence):
                     X = self.augment_img(X)
 
             # If doing inference/prediction do not attempt to pass y value, leave as empty
-            if not self.prediction:    
-                y[idx,] = [float(x) for x in batch_data[idx][1][1:-1].split(" ")]
-        
-        
+            if not self.prediction:
+                out = [float(x) for x in batch_data[idx][1][1:-1].split(" ")]
+                y[idx,] = out[5]
+
         return X, y
 
 
 if __name__ == "__main__":
 
-    training_data = DataGenerator(csv_filename="./training.csv", data_path=DATA_DIRECTORY)
+    training_data = DataGenerator(csv_filename="./training.csv", data_path=DATA_DIRECTORY, num_classes=1, train=True)
     images, masks = training_data.__getitem__(1)
 
     print(masks)
