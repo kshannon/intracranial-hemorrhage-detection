@@ -12,7 +12,12 @@ import tensorflow as tf
 import data_flow
 from data_loader import DataGenerator
 import parse_config
-from custom_loss import multilabel_loss 
+from custom_loss import weighted_log_loss, weighted_loss
+
+
+# loss=loss.weighted_log_loss(),
+#                 optimizer=K.optimizers.Adam(lr = 1e-3, beta_1 = .9, beta_2 = .999, decay = 1e-3),
+#                 metrics=[loss.weighted_loss()
 
 
 if parse_config.USING_RTX_20XX:
@@ -26,17 +31,16 @@ DATA_DIRECTORY = data_flow.TEST_DATA_PATH
 TEST_CSV = "../submissions/phase1_test_filenames.csv"
 
 # Load the saved model and test data
-CUSTOM_OBJECTS = {"multilabel_loss":multilabel_loss}
+CUSTOM_OBJECTS = {"weighted_log_loss":weighted_log_loss, "weighted_loss":weighted_loss}
 MODEL = tf.keras.models.load_model(MODEL_NAME, custom_objects=CUSTOM_OBJECTS)
 BATCH_SIZE = 1
-DIMS = (512,512)
-# RESIZE = (224,224) #comment out if not needed and erase param below
+DIMS = (224,224)
 TEST_DATA_GEN = DataGenerator(csv_filename=TEST_CSV,
                                 data_path=DATA_DIRECTORY,
                                 shuffle=False,
                                 batch_size=1,
                                 prediction=True,
-                                resize=None,
+                                resize=True,
                                 dims=DIMS)
 INTRACRANIAL_HEMORRHAGE_SUBTYPES = ["epidural",
                                     "intraparenchymal",
