@@ -2,6 +2,8 @@
 # coding: utf-8
 
 import os
+import sys
+import ast
 import random
 import numpy as np
 from tensorflow import keras as K
@@ -18,36 +20,42 @@ class DataGenerator(K.utils.Sequence):
     """
     Generates data for Keras, including reading DICOM images and preprocessing/windowing images
     To resize images, set resize=True and pass new dims, e.g. dims=(256,256)
-    To use the data lloader for prediction/inference pass prediction=True, this will pass along 
+    To use the data loader for prediction/inference pass prediction=True, this will pass along
     a np.empty object for y, which is eventually discarded.
     """
     def __init__(self,
                  csv_filename,
                  data_path,
                  batch_size=32,
-                 dims=(512,512),
-                 channels=3,
-                 num_classes=6,
+                 channels = 3,
+                 dims = (512,512),
+                 num_classes = 5,
+                 train=False,
                  shuffle=True,
                  prediction=False,
-                 resize=False,
                  window=False,
                  augment=False):
         """
         Class attribute initialization
         """
-        self.batch_size = batch_size
-        self.dims = dims
-        self.channels = channels
-        self.num_classes = num_classes
         self.data_path = data_path
-        self.df = pd.read_csv(csv_filename, header=None)
-        self.indexes = np.arange(len(self.df))
+        self.batch_size = batch_size
+        self.channels = channels
+        self.dims = dims
+        self.num_classes = num_classes
         self.window = window
-        self.resize = resize
         self.prediction = prediction
         self.augment = augment
         self.shuffle = shuffle
+        
+        # mask out class 0 and drop the "any" value (last number in list i.e. row[1:-4])
+        df = pd.read_csv(csv_filename, header=None)
+        if not prediction:
+            df = df[df.iloc[:,1] != '[0. 0. 0. 0. 0. 0.]'].reset_index(drop=True)
+            df.iloc[:,1] = df.iloc[:,1].map(lambda row: [float(x) for x in row[1:-4].split(" ")])
+        self.df = df
+
+        self.indexes = np.arange(len(self.df))
         self.on_epoch_end()
 
     def __len__(self):
@@ -80,13 +88,13 @@ class DataGenerator(K.utils.Sequence):
         """
         # img = (img - np.mean(img)) / np.std(img)
         return 2 * (img - img.min())/(img.max() - img.min()) - 1
-        
+
 
     def hounsfield_translation(self, data):
         """
         Retrieves windowing data from dicom metadata
         Arguments:
-            data {pydicom metadata obj} -- object returned from pydicom dcmread() 
+            data {pydicom metadata obj} -- object returned from pydicom dcmread()
         Attribution: This code inspired from Richard McKinley's Kaggle kernel
         """
         if type(data.RescaleIntercept) == pydicom.multival.MultiValue:
@@ -98,7 +106,7 @@ class DataGenerator(K.utils.Sequence):
             slope = int(data.RescaleSlope[0])
         else:
             slope = int(data.RescaleSlope)
-        
+
         return intercept, slope
 
 
@@ -120,8 +128,8 @@ class DataGenerator(K.utils.Sequence):
 
     def rotate_img(self, X):
         return X
-    
-    
+
+
     def flip_img(self, X):
         return X
 
@@ -141,6 +149,7 @@ class DataGenerator(K.utils.Sequence):
         Generates data containing batch_size samples
         """
         batch_data = self.df.loc[indexes].values
+        print(batch_data)
 
         X = np.empty((self.batch_size, *self.dims, self.channels))
         y = np.empty((self.batch_size, self.num_classes))
@@ -148,7 +157,7 @@ class DataGenerator(K.utils.Sequence):
         for idx in range(self.batch_size):
             filename = os.path.join(self.data_path, batch_data[idx][0])
             with pydicom.dcmread(filename) as ds:
-              
+
                 intercept, slope = self.hounsfield_translation(ds)
                 img = ds.pixel_array.astype(np.float)
                 img = np.array(img, dtype='uint8')
@@ -157,7 +166,7 @@ class DataGenerator(K.utils.Sequence):
                     tissue_window = self.window_image(img, 40, 40, intercept, slope)
                     brain_window = self.window_image(img, 50, 100, intercept, slope)
                     blood_window = self.window_image(img, 60, 40, intercept, slope)
-                    if self.resize:
+                    if self.dims != img.shape:
                         tissue_window = cv2.resize(tissue_window, self.dims, interpolation = cv2.INTER_AREA)
                         brain_window = cv2.resize(brain_window, self.dims, interpolation = cv2.INTER_AREA)
                         blood_window = cv2.resize(blood_window, self.dims, interpolation = cv2.INTER_AREA)
@@ -169,7 +178,7 @@ class DataGenerator(K.utils.Sequence):
                 if not self.window:
                     img = (img * slope + intercept)
                     #TODO: just make this check if img size is == (512,512) get rid of resize=True attribute
-                    if self.resize:
+                    if self.dims != img.shape:
                         img = cv2.resize(img, self.dims, interpolation=cv2.INTER_LINEAR)
                     X[idx,] = np.stack((self.normalize_img(np.array(img, dtype=float)),)*3, axis=-1)
 
@@ -178,16 +187,18 @@ class DataGenerator(K.utils.Sequence):
                     X = self.augment_img(X)
 
             # If doing inference/prediction do not attempt to pass y value, leave as empty
-            if not self.prediction:    
-                y[idx,] = [float(x) for x in batch_data[idx][1][1:-1].split(" ")]
-        
-        
+            if not self.prediction:
+                out = np.array([float(x) for x in batch_data[idx][1]], dtype='float')
+                y[idx,] = out
+
+
         return X, y
 
 
 if __name__ == "__main__":
 
-    training_data = DataGenerator(csv_filename="./training.csv", data_path=DATA_DIRECTORY)
+    training_data = DataGenerator(csv_filename="./training.csv", data_path=DATA_DIRECTORY, num_classes=5, train=True, batch_size=4)
     images, masks = training_data.__getitem__(1)
 
     print(masks)
+    print(images)
