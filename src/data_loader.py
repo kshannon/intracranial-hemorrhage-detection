@@ -22,6 +22,8 @@ class DataGenerator(K.utils.Sequence):
     To resize images, set resize=True and pass new dims, e.g. dims=(256,256)
     To use the data loader for prediction/inference pass prediction=True, this will pass along
     a np.empty object for y, which is eventually discarded.
+
+    Acceptable channel options include: 'hu_norm','brain','blood','soft_tissue',...
     """
     def __init__(self,
                  csv_filename,
@@ -30,11 +32,10 @@ class DataGenerator(K.utils.Sequence):
                  channels = 3,
                  dims = (512,512),
                  num_classes = 5,
-                 train=False,
                  shuffle=True,
                  prediction=False,
-                 window=False,
-                 augment=False):
+                 augment=False,
+                 channels = ['hu_norm','hu_norm','hu_norm']:
         """
         Class attribute initialization
         """
@@ -43,10 +44,11 @@ class DataGenerator(K.utils.Sequence):
         self.channels = channels
         self.dims = dims
         self.num_classes = num_classes
-        self.window = window
         self.prediction = prediction
         self.augment = augment
         self.shuffle = shuffle
+        self.channels = channels
+
         
         # mask out class 0 and drop the "any" value (last number in list i.e. row[1:-4])
         df = pd.read_csv(csv_filename, header=None)
@@ -110,15 +112,19 @@ class DataGenerator(K.utils.Sequence):
         return intercept, slope
 
 
-    def window_image(self, img, window_center, window_width, intercept, slope):
+    def window_image(self, img, intercept, slope, window_type):
         """
         Given a CT scan img apply a windowing to the image
         Arguments:
             img {np.array} -- array of a dicom img processed by pydicom.dcmread()
             window_center,window_width,intercept,slope {floats} -- values provided by dicom file metadata
-        Attribution: This code comes from Richard McKinley's Kaggle kernel
+        Attribution: This code mostly comes from Richard McKinley's Kaggle kernel
         """
+        window_value = {'hu_norm':None, 'blood':[], 'brain':[], 'soft_tissue':[]} # window_center, window_width
         img = (img * slope + intercept)
+        if window_type == 'hu_norm':
+            return img
+
         img_min = window_center - window_width // 2
         img_max = window_center + window_width // 2
         img[img < img_min] = img_min
@@ -162,35 +168,37 @@ class DataGenerator(K.utils.Sequence):
                 img = ds.pixel_array.astype(np.float)
                 img = np.array(img, dtype='uint8')
 
-                if self.window:
-                    tissue_window = self.window_image(img, 40, 40, intercept, slope)
-                    brain_window = self.window_image(img, 50, 100, intercept, slope)
-                    blood_window = self.window_image(img, 60, 40, intercept, slope)
+                channel_stack = []
+                for channel in self.channels:
+                    windowed_channel = self.window_image(img, intercept, slope, window_type=self.channel)
                     if self.dims != img.shape:
-                        tissue_window = cv2.resize(tissue_window, self.dims, interpolation = cv2.INTER_AREA)
-                        brain_window = cv2.resize(brain_window, self.dims, interpolation = cv2.INTER_AREA)
-                        blood_window = cv2.resize(blood_window, self.dims, interpolation = cv2.INTER_AREA)
+                        windowed_channel = cv2.resize(windowed_channel, self.dims, interpolation=cv2.INTER_LINEAR) #INTER_AREA
+                    norm_channel = self.normalize_img(np.array(windowed_channel, dtype=float))
+                    channel_stack.append(norm_channel)
+                
+                X[idx,] = np.stack(channel_stack, axis=-1)
 
-                    X[idx,:,:,0] = self.normalize_img(np.array(tissue_window, dtype=float))
-                    X[idx,:,:,1] = self.normalize_img(np.array(brain_window, dtype=float))
-                    X[idx,:,:,2] = self.normalize_img(np.array(blood_window, dtype=float))
-
-                if not self.window:
-                    img = (img * slope + intercept)
-                    #TODO: just make this check if img size is == (512,512) get rid of resize=True attribute
-                    if self.dims != img.shape:
-                        img = cv2.resize(img, self.dims, interpolation=cv2.INTER_LINEAR)
-                    X[idx,] = np.stack((self.normalize_img(np.array(img, dtype=float)),)*3, axis=-1)
-
-                # data augmentation gauntlet
                 if self.augment:
                     X = self.augment_img(X)
+
+                # channel_one = self.window_image(img, intercept, slope, window_type=self.channel_1)
+                # channel_two = self.window_image(img, intercept, slope, window_type=self.channel_2)
+                # channel_three = self.window_image(img, intercept, slope, window_type=self.channel_3)
+                
+                # if self.dims != img.shape:
+                #     channel_one = cv2.resize(channel_one, self.dims, interpolation=cv2.INTER_LINEAR) #INTER_ARE
+                #     channel_two = cv2.resize(channel_two, self.dims, interpolation=cv2.INTER_LINEAR) #INTER_ARE
+                #     channel_three = cv2.resize(channel_three, self.dims, interpolation=cv2.INTER_LINEAR) #INTER_ARE
+
+                # X[idx,:,:,0] = self.normalize_img(np.array(channel_one, dtype=float))
+                # X[idx,:,:,1] = self.normalize_img(np.array(channel_two, dtype=float))
+                # X[idx,:,:,2] = self.normalize_img(np.array(channel_three, dtype=float))
+
 
             # If doing inference/prediction do not attempt to pass y value, leave as empty
             if not self.prediction:
                 out = np.array([float(x) for x in batch_data[idx][1]], dtype='float')
                 y[idx,] = out
-
 
         return X, y
 
