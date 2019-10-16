@@ -23,7 +23,7 @@ class DataGenerator(K.utils.Sequence):
     To use the data loader for prediction/inference pass prediction=True, this will pass along
     a np.empty object for y, which is eventually discarded.
 
-    Acceptable channel options include: 'hu_norm','brain','blood','soft_tissue',...
+    Acceptable channel options include: 'hu_norm','brain','subdural','soft_tissue',...
     """
     def __init__(self,
                  csv_filename,
@@ -35,7 +35,7 @@ class DataGenerator(K.utils.Sequence):
                  shuffle=True,
                  prediction=False,
                  augment=False,
-                 channels = ['hu_norm','hu_norm','hu_norm']:
+                 channel_types = ['hu_norm','hu_norm','hu_norm']):
         """
         Class attribute initialization
         """
@@ -47,7 +47,7 @@ class DataGenerator(K.utils.Sequence):
         self.prediction = prediction
         self.augment = augment
         self.shuffle = shuffle
-        self.channels = channels
+        self.channel_types = channel_types
 
         
         # mask out class 0 and drop the "any" value (last number in list i.e. row[1:-4])
@@ -120,11 +120,27 @@ class DataGenerator(K.utils.Sequence):
             window_center,window_width,intercept,slope {floats} -- values provided by dicom file metadata
         Attribution: This code mostly comes from Richard McKinley's Kaggle kernel
         """
-        window_value = {'hu_norm':None, 'blood':[], 'brain':[], 'soft_tissue':[]} # window_center, window_width
+        window_value = {'hu_norm':None, 'subdural':[50,130], 'brain':[50,100], 'soft_tissue':[0,350]} # [window_center, window_width]
         img = (img * slope + intercept)
+
         if window_type == 'hu_norm':
+            print("hu_norm")
             return img
 
+        if window_type == 'subdural':
+            window_center = window_value['subdural'][0]
+            window_width = window_value['subdural'][1]
+        elif window_type == 'brain':
+            window_center = window_value['brain'][0]
+            window_width = window_value['brain'][1]
+        elif window_type == 'soft_tissue':
+            window_center = window_value['soft_tissue'][0]
+            window_width = window_value['soft_tissue'][1]
+        else:
+            return img
+
+        print(window_center)
+        print(window_width)
         img_min = window_center - window_width // 2
         img_max = window_center + window_width // 2
         img[img < img_min] = img_min
@@ -155,7 +171,7 @@ class DataGenerator(K.utils.Sequence):
         Generates data containing batch_size samples
         """
         batch_data = self.df.loc[indexes].values
-        print(batch_data)
+        # print(batch_data)
 
         X = np.empty((self.batch_size, *self.dims, self.channels))
         y = np.empty((self.batch_size, self.num_classes))
@@ -169,8 +185,8 @@ class DataGenerator(K.utils.Sequence):
                 img = np.array(img, dtype='uint8')
 
                 channel_stack = []
-                for channel in self.channels:
-                    windowed_channel = self.window_image(img, intercept, slope, window_type=self.channel)
+                for channel_type in self.channel_types:
+                    windowed_channel = self.window_image(img, intercept, slope, window_type=channel_type)
                     if self.dims != img.shape:
                         windowed_channel = cv2.resize(windowed_channel, self.dims, interpolation=cv2.INTER_LINEAR) #INTER_AREA
                     norm_channel = self.normalize_img(np.array(windowed_channel, dtype=float))
@@ -205,8 +221,12 @@ class DataGenerator(K.utils.Sequence):
 
 if __name__ == "__main__":
 
-    training_data = DataGenerator(csv_filename="./training.csv", data_path=DATA_DIRECTORY, num_classes=5, train=True, batch_size=4)
+    training_data = DataGenerator(csv_filename="./training.csv",
+                                    data_path=DATA_DIRECTORY,
+                                    num_classes=5,
+                                    batch_size=1,
+                                    channel_types = ['hu_norm','subdural','brain'])
     images, masks = training_data.__getitem__(1)
 
-    print(masks)
-    print(images)
+    # print(masks)
+    # print(images)
