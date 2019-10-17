@@ -6,7 +6,10 @@ import sys
 import ast
 import random
 import numpy as np
+from PIL import Image
+from scipy import ndimage, misc
 from tensorflow import keras as K
+import matplotlib.pylab as plt
 import pandas as pd
 import cv2
 import pydicom
@@ -114,17 +117,13 @@ class DataGenerator(K.utils.Sequence):
 
     def window_image(self, img, intercept, slope, window_type):
         """
-        Given a CT scan img apply a windowing to the image
-        Arguments:
-            img {np.array} -- array of a dicom img processed by pydicom.dcmread()
-            window_center,window_width,intercept,slope {floats} -- values provided by dicom file metadata
-        Attribution: This code mostly comes from Richard McKinley's Kaggle kernel
+        Given a CT scan img apply types of windowing
+        Attribution: Part of this code comes from Richard McKinley's Kaggle kernel
         """
         window_value = {'hu_norm':None, 'subdural':[50,130], 'brain':[50,100], 'soft_tissue':[0,350]} # [window_center, window_width]
         img = (img * slope + intercept)
 
         if window_type == 'hu_norm':
-            print("hu_norm")
             return img
 
         if window_type == 'subdural':
@@ -139,8 +138,6 @@ class DataGenerator(K.utils.Sequence):
         else:
             return img
 
-        print(window_center)
-        print(window_width)
         img_min = window_center - window_width // 2
         img_max = window_center + window_width // 2
         img[img < img_min] = img_min
@@ -148,30 +145,52 @@ class DataGenerator(K.utils.Sequence):
         return img
 
 
-    def rotate_img(self, X):
-        return X
+    def rotate_img(self, img):
+        degree = random.randrange(-10, 10)
+        print("degree:",degree)
+        return ndimage.rotate(img, degree, reshape=False)
 
+    def flip_img(self, img):
+        axis = random.choice([0, 1])
+        return np.flip(img, axis=axis)
+    
+    def sp_noise(self, image, prob=0.025):
+        '''
+        Add salt and pepper noise to image
+        prob: Probability of the noise
+        '''
+        output = np.zeros(image.shape,np.uint8)
+        thres = 1 - prob 
+        for i in range(image.shape[0]):
+            for j in range(image.shape[1]):
+                rdn = random.random()
+                if rdn < prob:
+                    output[i][j] = 0
+                elif rdn > thres:
+                    output[i][j] = 255
+                else:
+                    output[i][j] = image[i][j]
+        return output
 
-    def flip_img(self, X):
-        return X
-
-
-    def augment_img(self, X):
+    def augment_img(self, img):
         """
         Given a normalized and windowed 3 channel image, apply random augmentation
         """
-        #TODO: add random scheme for augmentation selection
-        X = self.flip_img(X)
-        X = self.rotate_img(X)
-        return X
+        if random.choice([0, 1]) == 1:
+            img = self.flip_img(img)
+        if random.choice([0, 1]) == 1:
+            img = self.rotate_img(img)
+        if random.choice([0, 1]) == 1:
+            img = self.sp_noise(img)
+        return img
 
 
     def __data_generation(self, indexes):
         """
         Generates data containing batch_size samples
         """
+        np.random.shuffle(self.indexes) #TODO DEBUG TAKE THIS OUT>>>>>>!!!!!!!!!!! debug
         batch_data = self.df.loc[indexes].values
-        # print(batch_data)
 
         X = np.empty((self.batch_size, *self.dims, self.channels))
         y = np.empty((self.batch_size, self.num_classes))
@@ -181,34 +200,42 @@ class DataGenerator(K.utils.Sequence):
             with pydicom.dcmread(filename) as ds:
 
                 intercept, slope = self.hounsfield_translation(ds)
-                img = ds.pixel_array.astype(np.float)
-                img = np.array(img, dtype='uint8')
+                img = ds.pixel_array#.astype(np.float)
+                # img = np.array(img, dtype='uint8')
 
                 channel_stack = []
                 for channel_type in self.channel_types:
                     windowed_channel = self.window_image(img, intercept, slope, window_type=channel_type)
+
+                    px = (img * slope + intercept).flatten()
+                    plt.hist(px, bins=40);
+                    plt.show()
+                    # imgplot = plt.imshow(img, cmap=plt.cm.bone)
+                    # plt.show()
+                    # print(intercept,slope)
+                    sys.exit()
+
+                    
                     if self.dims != img.shape:
                         windowed_channel = cv2.resize(windowed_channel, self.dims, interpolation=cv2.INTER_LINEAR) #INTER_AREA
                     norm_channel = self.normalize_img(np.array(windowed_channel, dtype=float))
+
+                    # imgplot = plt.imshow(norm_channel)
+                    # plt.show()
+
+
                     channel_stack.append(norm_channel)
                 
-                X[idx,] = np.stack(channel_stack, axis=-1)
-
+                rgb = np.dstack(channel_stack)
                 if self.augment:
-                    X = self.augment_img(X)
-
-                # channel_one = self.window_image(img, intercept, slope, window_type=self.channel_1)
-                # channel_two = self.window_image(img, intercept, slope, window_type=self.channel_2)
-                # channel_three = self.window_image(img, intercept, slope, window_type=self.channel_3)
+                    rgb = self.augment_img(rgb)
                 
-                # if self.dims != img.shape:
-                #     channel_one = cv2.resize(channel_one, self.dims, interpolation=cv2.INTER_LINEAR) #INTER_ARE
-                #     channel_two = cv2.resize(channel_two, self.dims, interpolation=cv2.INTER_LINEAR) #INTER_ARE
-                #     channel_three = cv2.resize(channel_three, self.dims, interpolation=cv2.INTER_LINEAR) #INTER_ARE
+                # print(rgb[:,:,0].shape)
+                # imgplot = plt.imshow(rgb[:,:,2])
+                # plt.show()
 
-                # X[idx,:,:,0] = self.normalize_img(np.array(channel_one, dtype=float))
-                # X[idx,:,:,1] = self.normalize_img(np.array(channel_two, dtype=float))
-                # X[idx,:,:,2] = self.normalize_img(np.array(channel_three, dtype=float))
+                # add three channel image to batch index
+                X[idx,] = rgb
 
 
             # If doing inference/prediction do not attempt to pass y value, leave as empty
@@ -225,6 +252,7 @@ if __name__ == "__main__":
                                     data_path=DATA_DIRECTORY,
                                     num_classes=5,
                                     batch_size=1,
+                                    augment=True,
                                     channel_types = ['hu_norm','subdural','brain'])
     images, masks = training_data.__getitem__(1)
 
