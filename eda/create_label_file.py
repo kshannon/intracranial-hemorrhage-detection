@@ -16,12 +16,12 @@ MASTER_CSV = os.path.join(CSV_DIRECTORY, "master_train.csv")
 
 def split_targets(x):
     targets = x["targets"][1:-1].split(" ")
-    x["epidural"] = targets[0]
-    x["intraparenchymal"] = targets[1]
-    x["intraventricular"] = targets[2]
-    x["subarachnoid"] = targets[3]
-    x["subdural"] = targets[4]
-    x["any"] = targets[5]
+    x["epidural"] = float(targets[0])
+    x["intraparenchymal"] = float(targets[1])
+    x["intraventricular"] = float(targets[2])
+    x["subarachnoid"] = float(targets[3])
+    x["subdural"] = float(targets[4])
+    x["any"] = float(targets[5])
     return x
 
 if os.path.exists(MASTER_CSV):
@@ -57,6 +57,8 @@ else:
 # We have a master DF, lets create two sub DFs for
 class1_df = master_df.loc[master_df['any'] == 1] # 97103 class 1 (14% of the data)
 class0_df = master_df.loc[master_df['any'] == 0] # 577155 class 0
+
+
 assert class0_df.shape[0] + class1_df.shape[0] == master_df.shape[0]
 
 # Shuffle and randomly undersample class 0
