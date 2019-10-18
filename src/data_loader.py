@@ -15,6 +15,9 @@ import cv2
 import pydicom
 import data_flow
 
+from scipy.ndimage.interpolation import map_coordinates
+from scipy.ndimage.filters import gaussian_filter
+
 
 DATA_DIRECTORY = data_flow.TRAIN_DATA_PATH
 
@@ -169,24 +172,45 @@ class DataGenerator(K.utils.Sequence):
         axis = random.choice([0, 1])
         return np.flip(img, axis=axis)
     
-    def sp_noise(self, image, prob=0.025):
+    def sp_noise(self, image, prob):
         '''
         Add salt and pepper noise to image
         prob: Probability of the noise
         '''
-        output = np.zeros(image.shape,np.uint8)
         thres = 1 - prob 
         for i in range(image.shape[0]):
             for j in range(image.shape[1]):
                 rdn = random.random()
                 if rdn < prob:
-                    output[i][j] = 0
+                    image[i][j] = 0
                 elif rdn > thres:
-                    output[i][j] = 255
+                    image[i][j] = 255
                 else:
-                    output[i][j] = image[i][j]
-        return output
+                    continue
+        return image
 
+    def elastic_transform(self, image, alpha, sigma, random_state=None):
+        """Elastic deformation of images as described in [Simard2003]_.
+        .. [Simard2003] Simard, Steinkraus and Platt, "Best Practices for
+        Convolutional Neural Networks applied to Visual Document Analysis", in
+        Proc. of the International Conference on Document Analysis and
+        Recognition, 2003.-https://gist.github.com/erniejunior/601cdf56d2b424757de5
+        """
+        if random_state is None:
+            random_state = np.random.RandomState(None)
+
+        shape = image.shape
+        dx = gaussian_filter((random_state.rand(*shape) * 2 - 1), sigma, mode="constant", cval=0) * alpha
+        dy = gaussian_filter((random_state.rand(*shape) * 2 - 1), sigma, mode="constant", cval=0) * alpha
+        dz = np.zeros_like(dx)
+
+        x, y, z = np.meshgrid(np.arange(shape[0]), np.arange(shape[1]), np.arange(shape[2]))
+        print(x.shape)
+        indices = np.reshape(y+dy, (-1, 1)), np.reshape(x+dx, (-1, 1)), np.reshape(z, (-1, 1))
+
+        distored_image = map_coordinates(image, indices, order=1, mode='reflect')
+        return distored_image.reshape(image.shape)
+    
     def augment_img(self, img):
         """
         Given a normalized and windowed 3 channel image, apply random augmentation
@@ -196,18 +220,15 @@ class DataGenerator(K.utils.Sequence):
         if random.choice([0, 1]) == 1:
             img = self.rotate_img(img)
         if random.choice([0, 1]) == 1:
-            img = self.sp_noise(img)
+            img = self.sp_noise(img, prob=0.005)
+        if random.choice([0, 1]) == 1:
+            img = self.elastic_transform(img,alpha=400,sigma=8)
         return img
-
+    
     def __data_generation(self, indexes):
         """
         Generates data containing batch_size samples
         """
-        np.random.shuffle(self.indexes) #TODO DEBUG TAKE THIS OUT>>>>>>!!!!!!!!!!! debug
-        print(self.df.head())
-
-
-
         batch_data = self.df.loc[indexes].values
 
         X = np.empty((self.batch_size, *self.dims, self.channels))
@@ -218,41 +239,29 @@ class DataGenerator(K.utils.Sequence):
             with pydicom.dcmread(filename) as ds:
 
                 intercept, slope = self.hounsfield_translation(ds)
-                img = ds.pixel_array#.astype(np.float)
-                # img = np.array(img, dtype='uint8')
+                img = ds.pixel_array.astype('float32') #astype(ds.pixel_array.dtype)
+                # img = np.array(img, dtype=np.float) # Real point of contention here....dtype='uint32'
+
 
                 channel_stack = []
                 for channel_type in self.channel_types:
                     windowed_channel = self.window_image(img, intercept, slope, window_type=channel_type)
 
-                    px = (img * slope + intercept).flatten()
-                    plt.hist(px, bins=40);
-                    plt.show()
-                    # imgplot = plt.imshow(img, cmap=plt.cm.bone)
-                    # plt.show()
-                    # print(intercept,slope)
-                    sys.exit()
-
-                    
                     if self.dims != img.shape:
                         windowed_channel = cv2.resize(windowed_channel, self.dims, interpolation=cv2.INTER_LINEAR) #INTER_AREA
+                    
                     norm_channel = self.normalize_img(np.array(windowed_channel, dtype=float))
-
-                    # imgplot = plt.imshow(norm_channel)
-                    # plt.show()
-
-
                     channel_stack.append(norm_channel)
-                
+
                 rgb = np.dstack(channel_stack)
                 if self.augment:
                     rgb = self.augment_img(rgb)
-                
-                # print(rgb[:,:,0].shape)
-                # imgplot = plt.imshow(rgb[:,:,2])
+
+                # DEBUGGING - plot images after windowing/HU_norm
+                # imgplot = plt.imshow(rgb, cmap=plt.cm.bone)
                 # plt.show()
 
-                # add three channel image to batch index
+                # add three channel "rgb" image to batch's index. rinse & repeat.
                 X[idx,] = rgb
 
 
@@ -268,11 +277,10 @@ if __name__ == "__main__":
 
     training_data = DataGenerator(csv_filename="./training.csv",
                                     data_path=DATA_DIRECTORY,
-                                    num_classes=5,
                                     batch_size=1,
                                     augment=True,
                                     subtype = "intraparenchymal",
-                                    channel_types = ['hu_norm','subdural','brain'])
+                                    channel_types = ['subdural','soft_tissue','brain'])
     images, masks = training_data.__getitem__(1)
 
     # print(masks)
