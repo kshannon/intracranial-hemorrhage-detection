@@ -58,6 +58,7 @@ class DataGenerator(K.utils.Sequence):
                  prediction=False,
                  augment=False,
                  subtype = "any",
+                 balance_data = True,
                  channel_types = ['hu_norm','hu_norm','hu_norm']):
         """
         Class attribute initialization
@@ -72,17 +73,42 @@ class DataGenerator(K.utils.Sequence):
         self.shuffle = shuffle
         self.channel_types = channel_types
         self.subtype = subtype
+        self.balance_data = balance_data
 
-        if self.subtype == "any":
-            df_csv = pd.read_csv(csv_filename)
-            df_subtype = df_csv[['filename',self.subtype]]
-            self.df = df_subtype.reset_index(drop=True)
+        if self.prediction:
+            self.df = pd.read_csv(csv_filename)
         else:
-            df_csv = pd.read_csv(csv_filename)
-            df_subtype = df_csv[['filename', self.subtype, 'any']]
-            mask_df = df_subtype.loc[df_subtype['any'] == 1]
-            mask_df.drop('any', axis=1, inplace=True)
-            self.df = mask_df.reset_index(drop=True)
+            if self.subtype == "any":
+                df_csv = pd.read_csv(csv_filename)
+                df_subtype = df_csv[['filename',self.subtype]]
+                self.df = df_subtype.reset_index(drop=True)
+            else:
+                if self.balance_data:
+                    df_csv = pd.read_csv(csv_filename)
+                    df_subtype = df_csv[['filename', self.subtype, 'any']]
+                    mask_df = df_subtype.loc[df_subtype['any'] == 1]
+                    mask_df.drop('any', axis=1, inplace=True)
+
+                    #now we need to balance the data for class 1/0
+                    class1_df = mask_df.loc[mask_df[self.subtype] == 1]
+                    class0_df = mask_df.loc[mask_df[self.subtype] == 0]
+
+                    # randomly subset class 0 to match class 1 50/50
+                    class0_df = class0_df.sample(frac=1, random_state=13).reset_index(drop=True)
+                    class0_df = class0_df.sample(n=class1_df.shape[0], random_state=13)
+
+                    # Reconstitute balanced dataset, shuffle whole dataset
+                    balanced_df = pd.concat([class1_df, class0_df], ignore_index=True)
+                    balanced_df = balanced_df.sample(frac=1, random_state=13).reset_index(drop=True)
+                    self.df = balanced_df
+
+                if not self.balance_data:
+                    # here we choose not to balance the dataset between class 1/0
+                    df_csv = pd.read_csv(csv_filename)
+                    df_subtype = df_csv[['filename', self.subtype, 'any']]
+                    mask_df = df_subtype.loc[df_subtype['any'] == 1]
+                    mask_df.drop('any', axis=1, inplace=True)
+                    self.df = mask_df.reset_index(drop=True)
 
         self.indexes = np.arange(len(self.df))
         self.on_epoch_end()
@@ -233,14 +259,8 @@ class DataGenerator(K.utils.Sequence):
         X = np.empty((self.batch_size, *self.dims, self.channels))
         y = np.empty((self.batch_size, self.num_classes))
 
-
-        
-
-
-
         for idx in range(self.batch_size):
             filename = os.path.join(self.data_path, batch_data[idx][0])
-
             with pydicom.dcmread(filename) as ds:
                 intercept, slope = self.hounsfield_translation(ds)
                 img = ds.pixel_array.astype('float32') #astype(ds.pixel_array.dtype)

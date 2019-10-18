@@ -39,7 +39,7 @@ DATA_DIRECTORY = data_flow.TRAIN_DATA_PATH
 TRAIN_CSV = parse_config.TRAIN_CSV
 VALIDATE_CSV = parse_config.VALIDATE_CSV
 TENSORBOARD_DIR = os.path.join('tensorboards/', sys.argv[1])
-BATCH_SIZE = 32
+BATCH_SIZE = 24
 EPOCHS = 15 
 DIMS = (224,224)
 
@@ -49,7 +49,8 @@ training_data_gen = DataGenerator(csv_filename=TRAIN_CSV,
                                     batch_size=BATCH_SIZE,
                                     dims=DIMS,
                                     augment=True,
-                                    subtype = "intraparenchymal",
+                                    balance_data = True,
+                                    subtype = "intraventricular",
                                     channel_types = ['subdural','soft_tissue','brain'])
 
 validation_data_gen = DataGenerator(csv_filename=VALIDATE_CSV,
@@ -57,7 +58,8 @@ validation_data_gen = DataGenerator(csv_filename=VALIDATE_CSV,
                                     batch_size=BATCH_SIZE,
                                     dims=DIMS,
                                     augment=False,
-                                    subtype = "intraparenchymal",
+                                    balance_data = True,
+                                    subtype = "intraventricular",
                                     channel_types = ['subdural','soft_tissue','brain'])
 
 
