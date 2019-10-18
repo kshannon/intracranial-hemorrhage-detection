@@ -22,12 +22,26 @@ DATA_DIRECTORY = data_flow.TRAIN_DATA_PATH
 class DataGenerator(K.utils.Sequence):
     """
     Generates data for Keras, including reading DICOM images and preprocessing/windowing images
-    To resize images, set resize=True and pass new dims, e.g. dims=(256,256)
+    To resize images, set dims to a new tuple of ints e.g. (244,244)
     To use the data loader for prediction/inference pass prediction=True, this will pass along
     a np.empty object for y, which is eventually discarded.
+    Setting augment=True will randomly flip, rotate (+/-10), and add salt&pepper noise to the three channel imgs.
+    Use the subtype argument to tell the network which subtype to train for. Each one trains binary cross entropy.
+    'any' will train on all data, anyother subtype will train only on IH - positive data, where class 1 is the chosen
+    subtype and all other subtypes are now labeled class 0. We can train this way because each real subtype has mutually
+    exclusive probability. 
 
-    Acceptable channel_types include: 'hu_norm','brain','subdural','soft_tissue',...
-    Acceptable subtypes include: 'any','intraparenchymal','intraventricular','subarachoid','subdural','epidural'
+    Acceptable strings for applying windowing are channel_types='' ['hu_norm',
+                                                                    'brain',
+                                                                    'subdural',
+                                                                    'soft_tissue']
+
+    Acceptable strings for subtype='' ['any',
+                                        'intraparenchymal',
+                                        'intraventricular',
+                                        'subarachoid',
+                                        'subdural',
+                                        'epidural'
     """
     def __init__(self,
                  csv_filename,
@@ -65,8 +79,6 @@ class DataGenerator(K.utils.Sequence):
             mask_df = df_subtype.loc[df_subtype['any'] == 1]
             mask_df.drop('any', axis=1, inplace=True)
             self.df = mask_df.reset_index(drop=True)
-            print(self.df.head())
-            sys.exit()
 
         self.indexes = np.arange(len(self.df))
         self.on_epoch_end()
@@ -86,7 +98,6 @@ class DataGenerator(K.utils.Sequence):
         X, y = self.__data_generation(indexes)
         return X, y
 
-
     def on_epoch_end(self):
         """
         Updates (shuffles) indexes after each epoch
@@ -94,14 +105,12 @@ class DataGenerator(K.utils.Sequence):
         if self.shuffle == True:
             np.random.shuffle(self.indexes)
 
-
     def normalize_img(self, img):
         """
         Return normalized numpy img array, plain & simple
         """
         # img = (img - np.mean(img)) / np.std(img)
         return 2 * (img - img.min())/(img.max() - img.min()) - 1
-
 
     def hounsfield_translation(self, data):
         """
@@ -121,7 +130,6 @@ class DataGenerator(K.utils.Sequence):
             slope = int(data.RescaleSlope)
 
         return intercept, slope
-
 
     def window_image(self, img, intercept, slope, window_type):
         """
@@ -151,7 +159,6 @@ class DataGenerator(K.utils.Sequence):
         img[img < img_min] = img_min
         img[img > img_max] = img_max
         return img
-
 
     def rotate_img(self, img):
         degree = random.randrange(-10, 10)
@@ -191,7 +198,6 @@ class DataGenerator(K.utils.Sequence):
         if random.choice([0, 1]) == 1:
             img = self.sp_noise(img)
         return img
-
 
     def __data_generation(self, indexes):
         """
