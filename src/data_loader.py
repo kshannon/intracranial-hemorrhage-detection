@@ -26,7 +26,8 @@ class DataGenerator(K.utils.Sequence):
     To use the data loader for prediction/inference pass prediction=True, this will pass along
     a np.empty object for y, which is eventually discarded.
 
-    Acceptable channel options include: 'hu_norm','brain','subdural','soft_tissue',...
+    Acceptable channel_types include: 'hu_norm','brain','subdural','soft_tissue',...
+    Acceptable subtypes include: 'any','intraparenchymal','intraventricular','subarachoid','subdural','epidural'
     """
     def __init__(self,
                  csv_filename,
@@ -34,10 +35,11 @@ class DataGenerator(K.utils.Sequence):
                  batch_size=32,
                  channels = 3,
                  dims = (512,512),
-                 num_classes = 5,
+                 num_classes = 2,
                  shuffle=True,
                  prediction=False,
                  augment=False,
+                 subtype = "any",
                  channel_types = ['hu_norm','hu_norm','hu_norm']):
         """
         Class attribute initialization
@@ -51,14 +53,18 @@ class DataGenerator(K.utils.Sequence):
         self.augment = augment
         self.shuffle = shuffle
         self.channel_types = channel_types
+        self.subtype = subtype
 
-        
-        # mask out class 0 and drop the "any" value (last number in list i.e. row[1:-4])
-        df = pd.read_csv(csv_filename, header=None)
-        if not prediction:
-            df = df[df.iloc[:,1] != '[0. 0. 0. 0. 0. 0.]'].reset_index(drop=True)
-            df.iloc[:,1] = df.iloc[:,1].map(lambda row: [float(x) for x in row[1:-4].split(" ")])
-        self.df = df
+        if self.subtype == "any":
+            df_csv = pd.read_csv(csv_filename)
+            df_subtype = df_csv[['id',self.subtype]]
+            self.df = df_subtype.reset_index(drop=True)
+        else:
+            df_csv = pd.read_csv(csv_filename)
+            df_subtype = df_csv[['id', self.subtype, 'any']]
+            mask_df = df_subtype.loc[df_subtype['any'] == 1]
+            mask_df.drop('column_name', axis=1, inplace=True)
+            self.df = mask_df.reset_index(drop=True)
 
         self.indexes = np.arange(len(self.df))
         self.on_epoch_end()
@@ -253,6 +259,7 @@ if __name__ == "__main__":
                                     num_classes=5,
                                     batch_size=1,
                                     augment=True,
+                                    subtype = "any",
                                     channel_types = ['hu_norm','subdural','brain'])
     images, masks = training_data.__getitem__(1)
 
