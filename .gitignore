@@ -15,6 +15,7 @@ events.out.tfevents.*
 *.conf
 *.ini
 *.config
+*.fth
 *-ignore.py
 *-ignore.ipynb
 notes.txt

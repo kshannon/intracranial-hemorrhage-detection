@@ -57,14 +57,16 @@ class DataGenerator(K.utils.Sequence):
 
         if self.subtype == "any":
             df_csv = pd.read_csv(csv_filename)
-            df_subtype = df_csv[['id',self.subtype]]
+            df_subtype = df_csv[['filename',self.subtype]]
             self.df = df_subtype.reset_index(drop=True)
         else:
             df_csv = pd.read_csv(csv_filename)
-            df_subtype = df_csv[['id', self.subtype, 'any']]
+            df_subtype = df_csv[['filename', self.subtype, 'any']]
             mask_df = df_subtype.loc[df_subtype['any'] == 1]
-            mask_df.drop('column_name', axis=1, inplace=True)
+            mask_df.drop('any', axis=1, inplace=True)
             self.df = mask_df.reset_index(drop=True)
+            print(self.df.head())
+            sys.exit()
 
         self.indexes = np.arange(len(self.df))
         self.on_epoch_end()
@@ -196,6 +198,10 @@ class DataGenerator(K.utils.Sequence):
         Generates data containing batch_size samples
         """
         np.random.shuffle(self.indexes) #TODO DEBUG TAKE THIS OUT>>>>>>!!!!!!!!!!! debug
+        print(self.df.head())
+
+
+
         batch_data = self.df.loc[indexes].values
 
         X = np.empty((self.batch_size, *self.dims, self.channels))
@@ -259,7 +265,7 @@ if __name__ == "__main__":
                                     num_classes=5,
                                     batch_size=1,
                                     augment=True,
-                                    subtype = "any",
+                                    subtype = "intraparenchymal",
                                     channel_types = ['hu_norm','subdural','brain'])
     images, masks = training_data.__getitem__(1)
 
