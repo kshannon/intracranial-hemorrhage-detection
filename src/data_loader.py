@@ -5,18 +5,17 @@ import os
 import sys
 import ast
 import random
-import numpy as np
 from PIL import Image
-from scipy import ndimage, misc
-from tensorflow import keras as K
+import numpy as np
+from scipy import ndimage
+from scipy.ndimage.interpolation import map_coordinates
+from scipy.ndimage.filters import gaussian_filter
 import matplotlib.pylab as plt
 import pandas as pd
 import cv2
 import pydicom
+from tensorflow import keras as K
 import data_flow
-
-from scipy.ndimage.interpolation import map_coordinates
-from scipy.ndimage.filters import gaussian_filter
 
 
 DATA_DIRECTORY = data_flow.TRAIN_DATA_PATH
