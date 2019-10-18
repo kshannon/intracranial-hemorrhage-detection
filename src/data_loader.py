@@ -10,12 +10,14 @@ import numpy as np
 from scipy import ndimage
 from scipy.ndimage.interpolation import map_coordinates
 from scipy.ndimage.filters import gaussian_filter
-import matplotlib.pylab as plt
 import pandas as pd
 import cv2
 import pydicom
 from tensorflow import keras as K
 import data_flow
+
+# debuggin
+# import matplotlib.pylab as plt
 
 
 DATA_DIRECTORY = data_flow.TRAIN_DATA_PATH
@@ -164,7 +166,6 @@ class DataGenerator(K.utils.Sequence):
 
     def rotate_img(self, img):
         degree = random.randrange(-10, 10)
-        print("degree:",degree)
         return ndimage.rotate(img, degree, reshape=False)
 
     def flip_img(self, img):
@@ -204,7 +205,6 @@ class DataGenerator(K.utils.Sequence):
         dz = np.zeros_like(dx)
 
         x, y, z = np.meshgrid(np.arange(shape[0]), np.arange(shape[1]), np.arange(shape[2]))
-        print(x.shape)
         indices = np.reshape(y+dy, (-1, 1)), np.reshape(x+dx, (-1, 1)), np.reshape(z, (-1, 1))
 
         distored_image = map_coordinates(image, indices, order=1, mode='reflect')
@@ -219,7 +219,7 @@ class DataGenerator(K.utils.Sequence):
         if random.choice([0, 1]) == 1:
             img = self.rotate_img(img)
         if random.choice([0, 1]) == 1:
-            img = self.sp_noise(img, prob=0.005)
+            img = self.sp_noise(img, prob=0.0075)
         if random.choice([0, 1]) == 1:
             img = self.elastic_transform(img,alpha=400,sigma=8)
         return img
@@ -233,21 +233,25 @@ class DataGenerator(K.utils.Sequence):
         X = np.empty((self.batch_size, *self.dims, self.channels))
         y = np.empty((self.batch_size, self.num_classes))
 
+
+        
+
+
+
         for idx in range(self.batch_size):
             filename = os.path.join(self.data_path, batch_data[idx][0])
-            with pydicom.dcmread(filename) as ds:
 
+            with pydicom.dcmread(filename) as ds:
                 intercept, slope = self.hounsfield_translation(ds)
                 img = ds.pixel_array.astype('float32') #astype(ds.pixel_array.dtype)
                 # img = np.array(img, dtype=np.float) # Real point of contention here....dtype='uint32'
-
 
                 channel_stack = []
                 for channel_type in self.channel_types:
                     windowed_channel = self.window_image(img, intercept, slope, window_type=channel_type)
 
                     if self.dims != img.shape:
-                        windowed_channel = cv2.resize(windowed_channel, self.dims, interpolation=cv2.INTER_LINEAR) #INTER_AREA
+                        windowed_channel = cv2.resize(windowed_channel, self.dims, interpolation=cv2.INTER_AREA)
                     
                     norm_channel = self.normalize_img(np.array(windowed_channel, dtype=float))
                     channel_stack.append(norm_channel)
@@ -266,7 +270,7 @@ class DataGenerator(K.utils.Sequence):
 
             # If doing inference/prediction do not attempt to pass y value, leave as empty
             if not self.prediction:
-                out = np.array([float(x) for x in batch_data[idx][1]], dtype='float')
+                out = np.array(batch_data[idx][1], dtype='float')
                 y[idx,] = out
 
         return X, y
@@ -278,6 +282,7 @@ if __name__ == "__main__":
                                     data_path=DATA_DIRECTORY,
                                     batch_size=1,
                                     augment=True,
+                                    dims=(299,299),
                                     subtype = "intraparenchymal",
                                     channel_types = ['subdural','soft_tissue','brain'])
     images, masks = training_data.__getitem__(1)
