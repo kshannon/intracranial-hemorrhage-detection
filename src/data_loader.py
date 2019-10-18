@@ -2,13 +2,22 @@
 # coding: utf-8
 
 import os
+import sys
+import ast
 import random
+from PIL import Image
 import numpy as np
-from tensorflow import keras as K
+from scipy import ndimage
+from scipy.ndimage.interpolation import map_coordinates
+from scipy.ndimage.filters import gaussian_filter
 import pandas as pd
 import cv2
 import pydicom
+from tensorflow import keras as K
 import data_flow
+
+# debuggin
+# import matplotlib.pylab as plt
 
 
 DATA_DIRECTORY = data_flow.TRAIN_DATA_PATH
@@ -17,37 +26,91 @@ DATA_DIRECTORY = data_flow.TRAIN_DATA_PATH
 class DataGenerator(K.utils.Sequence):
     """
     Generates data for Keras, including reading DICOM images and preprocessing/windowing images
-    To resize images, set resize=True and pass new dims, e.g. dims=(256,256)
-    To use the data lloader for prediction/inference pass prediction=True, this will pass along 
+    To resize images, set dims to a new tuple of ints e.g. (244,244)
+    To use the data loader for prediction/inference pass prediction=True, this will pass along
     a np.empty object for y, which is eventually discarded.
+    Setting augment=True will randomly flip, rotate (+/-10), and add salt&pepper noise to the three channel imgs.
+    Use the subtype argument to tell the network which subtype to train for. Each one trains binary cross entropy.
+    'any' will train on all data, anyother subtype will train only on IH - positive data, where class 1 is the chosen
+    subtype and all other subtypes are now labeled class 0. We can train this way because each real subtype has mutually
+    exclusive probability. 
+
+    Acceptable strings for applying windowing are channel_types='' ['hu_norm',
+                                                                    'brain',
+                                                                    'subdural',
+                                                                    'soft_tissue']
+
+    Acceptable strings for subtype='' ['any',
+                                        'intraparenchymal',
+                                        'intraventricular',
+                                        'subarachoid',
+                                        'subdural',
+                                        'epidural'
     """
     def __init__(self,
                  csv_filename,
                  data_path,
                  batch_size=32,
-                 dims=(512,512),
-                 channels=3,
-                 num_classes=6,
+                 channels = 3,
+                 dims = (512,512),
+                 num_classes = 2,
                  shuffle=True,
                  prediction=False,
-                 resize=False,
-                 window=False,
-                 augment=False):
+                 augment=False,
+                 subtype = "any",
+                 balance_data = True,
+                 channel_types = ['hu_norm','hu_norm','hu_norm']):
         """
         Class attribute initialization
         """
-        self.batch_size = batch_size
-        self.dims = dims
-        self.channels = channels
-        self.num_classes = num_classes
         self.data_path = data_path
-        self.df = pd.read_csv(csv_filename, header=None)
-        self.indexes = np.arange(len(self.df))
-        self.window = window
-        self.resize = resize
+        self.batch_size = batch_size
+        self.channels = channels
+        self.dims = dims
+        self.num_classes = num_classes
         self.prediction = prediction
         self.augment = augment
         self.shuffle = shuffle
+        self.channel_types = channel_types
+        self.subtype = subtype
+        self.balance_data = balance_data
+
+        if self.prediction:
+            self.df = pd.read_csv(csv_filename)
+        else:
+            if self.subtype == "any":
+                df_csv = pd.read_csv(csv_filename)
+                df_subtype = df_csv[['filename',self.subtype]]
+                self.df = df_subtype.reset_index(drop=True)
+            else:
+                if self.balance_data:
+                    df_csv = pd.read_csv(csv_filename)
+                    df_subtype = df_csv[['filename', self.subtype, 'any']]
+                    mask_df = df_subtype.loc[df_subtype['any'] == 1]
+                    mask_df.drop('any', axis=1, inplace=True)
+
+                    #now we need to balance the data for class 1/0
+                    class1_df = mask_df.loc[mask_df[self.subtype] == 1]
+                    class0_df = mask_df.loc[mask_df[self.subtype] == 0]
+
+                    # randomly subset class 0 to match class 1 50/50
+                    class0_df = class0_df.sample(frac=1, random_state=13).reset_index(drop=True)
+                    class0_df = class0_df.sample(n=class1_df.shape[0], random_state=13)
+
+                    # Reconstitute balanced dataset, shuffle whole dataset
+                    balanced_df = pd.concat([class1_df, class0_df], ignore_index=True)
+                    balanced_df = balanced_df.sample(frac=1, random_state=13).reset_index(drop=True)
+                    self.df = balanced_df
+
+                if not self.balance_data:
+                    # here we choose not to balance the dataset between class 1/0
+                    df_csv = pd.read_csv(csv_filename)
+                    df_subtype = df_csv[['filename', self.subtype, 'any']]
+                    mask_df = df_subtype.loc[df_subtype['any'] == 1]
+                    mask_df.drop('any', axis=1, inplace=True)
+                    self.df = mask_df.reset_index(drop=True)
+
+        self.indexes = np.arange(len(self.df))
         self.on_epoch_end()
 
     def __len__(self):
@@ -65,7 +128,6 @@ class DataGenerator(K.utils.Sequence):
         X, y = self.__data_generation(indexes)
         return X, y
 
-
     def on_epoch_end(self):
         """
         Updates (shuffles) indexes after each epoch
@@ -73,20 +135,18 @@ class DataGenerator(K.utils.Sequence):
         if self.shuffle == True:
             np.random.shuffle(self.indexes)
 
-
     def normalize_img(self, img):
         """
         Return normalized numpy img array, plain & simple
         """
         # img = (img - np.mean(img)) / np.std(img)
         return 2 * (img - img.min())/(img.max() - img.min()) - 1
-        
 
     def hounsfield_translation(self, data):
         """
         Retrieves windowing data from dicom metadata
         Arguments:
-            data {pydicom metadata obj} -- object returned from pydicom dcmread() 
+            data {pydicom metadata obj} -- object returned from pydicom dcmread()
         Attribution: This code inspired from Richard McKinley's Kaggle kernel
         """
         if type(data.RescaleIntercept) == pydicom.multival.MultiValue:
@@ -98,44 +158,98 @@ class DataGenerator(K.utils.Sequence):
             slope = int(data.RescaleSlope[0])
         else:
             slope = int(data.RescaleSlope)
-        
+
         return intercept, slope
 
-
-    def window_image(self, img, window_center, window_width, intercept, slope):
+    def window_image(self, img, intercept, slope, window_type):
         """
-        Given a CT scan img apply a windowing to the image
-        Arguments:
-            img {np.array} -- array of a dicom img processed by pydicom.dcmread()
-            window_center,window_width,intercept,slope {floats} -- values provided by dicom file metadata
-        Attribution: This code comes from Richard McKinley's Kaggle kernel
+        Given a CT scan img apply types of windowing
+        Attribution: Part of this code comes from Richard McKinley's Kaggle kernel
         """
+        window_value = {'hu_norm':None, 'subdural':[50,130], 'brain':[50,100], 'soft_tissue':[0,350]} # [window_center, window_width]
         img = (img * slope + intercept)
+
+        if window_type == 'hu_norm':
+            return img
+
+        if window_type == 'subdural':
+            window_center = window_value['subdural'][0]
+            window_width = window_value['subdural'][1]
+        elif window_type == 'brain':
+            window_center = window_value['brain'][0]
+            window_width = window_value['brain'][1]
+        elif window_type == 'soft_tissue':
+            window_center = window_value['soft_tissue'][0]
+            window_width = window_value['soft_tissue'][1]
+        else:
+            return img
+
         img_min = window_center - window_width // 2
         img_max = window_center + window_width // 2
         img[img < img_min] = img_min
         img[img > img_max] = img_max
         return img
 
+    def rotate_img(self, img):
+        degree = random.randrange(-10, 10)
+        return ndimage.rotate(img, degree, reshape=False)
 
-    def rotate_img(self, X):
-        return X
+    def flip_img(self, img):
+        axis = random.choice([0, 1])
+        return np.flip(img, axis=axis)
     
+    def sp_noise(self, image, prob):
+        '''
+        Add salt and pepper noise to image
+        prob: Probability of the noise
+        '''
+        thres = 1 - prob 
+        for i in range(image.shape[0]):
+            for j in range(image.shape[1]):
+                rdn = random.random()
+                if rdn < prob:
+                    image[i][j] = 0
+                elif rdn > thres:
+                    image[i][j] = 255
+                else:
+                    continue
+        return image
+
+    def elastic_transform(self, image, alpha, sigma, random_state=None):
+        """Elastic deformation of images as described in [Simard2003]_.
+        .. [Simard2003] Simard, Steinkraus and Platt, "Best Practices for
+        Convolutional Neural Networks applied to Visual Document Analysis", in
+        Proc. of the International Conference on Document Analysis and
+        Recognition, 2003.-https://gist.github.com/erniejunior/601cdf56d2b424757de5
+        """
+        if random_state is None:
+            random_state = np.random.RandomState(None)
+
+        shape = image.shape
+        dx = gaussian_filter((random_state.rand(*shape) * 2 - 1), sigma, mode="constant", cval=0) * alpha
+        dy = gaussian_filter((random_state.rand(*shape) * 2 - 1), sigma, mode="constant", cval=0) * alpha
+        dz = np.zeros_like(dx)
+
+        x, y, z = np.meshgrid(np.arange(shape[0]), np.arange(shape[1]), np.arange(shape[2]))
+        indices = np.reshape(y+dy, (-1, 1)), np.reshape(x+dx, (-1, 1)), np.reshape(z, (-1, 1))
+
+        distored_image = map_coordinates(image, indices, order=1, mode='reflect')
+        return distored_image.reshape(image.shape)
     
-    def flip_img(self, X):
-        return X
-
-
-    def augment_img(self, X):
+    def augment_img(self, img):
         """
         Given a normalized and windowed 3 channel image, apply random augmentation
         """
-        #TODO: add random scheme for augmentation selection
-        X = self.flip_img(X)
-        X = self.rotate_img(X)
-        return X
-
-
+        if random.choice([0, 1]) == 1:
+            img = self.flip_img(img)
+        if random.choice([0, 1]) == 1:
+            img = self.rotate_img(img)
+        if random.choice([0, 1]) == 1:
+            img = self.sp_noise(img, prob=0.0075)
+        if random.choice([0, 1]) == 1:
+            img = self.elastic_transform(img,alpha=400,sigma=8)
+        return img
+    
     def __data_generation(self, indexes):
         """
         Generates data containing batch_size samples
@@ -148,46 +262,50 @@ class DataGenerator(K.utils.Sequence):
         for idx in range(self.batch_size):
             filename = os.path.join(self.data_path, batch_data[idx][0])
             with pydicom.dcmread(filename) as ds:
-              
                 intercept, slope = self.hounsfield_translation(ds)
-                img = ds.pixel_array.astype(np.float)
-                img = np.array(img, dtype='uint8')
+                img = ds.pixel_array.astype('float32') #astype(ds.pixel_array.dtype)
+                # img = np.array(img, dtype=np.float) # Real point of contention here....dtype='uint32'
 
-                if self.window:
-                    tissue_window = self.window_image(img, 40, 40, intercept, slope)
-                    brain_window = self.window_image(img, 50, 100, intercept, slope)
-                    blood_window = self.window_image(img, 60, 40, intercept, slope)
-                    if self.resize:
-                        tissue_window = cv2.resize(tissue_window, self.dims, interpolation = cv2.INTER_AREA)
-                        brain_window = cv2.resize(brain_window, self.dims, interpolation = cv2.INTER_AREA)
-                        blood_window = cv2.resize(blood_window, self.dims, interpolation = cv2.INTER_AREA)
+                channel_stack = []
+                for channel_type in self.channel_types:
+                    windowed_channel = self.window_image(img, intercept, slope, window_type=channel_type)
 
-                    X[idx,:,:,0] = self.normalize_img(np.array(tissue_window, dtype=float))
-                    X[idx,:,:,1] = self.normalize_img(np.array(brain_window, dtype=float))
-                    X[idx,:,:,2] = self.normalize_img(np.array(blood_window, dtype=float))
+                    if self.dims != img.shape:
+                        windowed_channel = cv2.resize(windowed_channel, self.dims, interpolation=cv2.INTER_AREA)
+                    
+                    norm_channel = self.normalize_img(np.array(windowed_channel, dtype=float))
+                    channel_stack.append(norm_channel)
 
-                if not self.window:
-                    img = (img * slope + intercept)
-                    #TODO: just make this check if img size is == (512,512) get rid of resize=True attribute
-                    if self.resize:
-                        img = cv2.resize(img, self.dims, interpolation=cv2.INTER_LINEAR)
-                    X[idx,] = np.stack((self.normalize_img(np.array(img, dtype=float)),)*3, axis=-1)
-
-                # data augmentation gauntlet
+                rgb = np.dstack(channel_stack)
                 if self.augment:
-                    X = self.augment_img(X)
+                    rgb = self.augment_img(rgb)
+
+                # DEBUGGING - plot images after windowing/HU_norm
+                # imgplot = plt.imshow(rgb, cmap=plt.cm.bone)
+                # plt.show()
+
+                # add three channel "rgb" image to batch's index. rinse & repeat.
+                X[idx,] = rgb
+
 
             # If doing inference/prediction do not attempt to pass y value, leave as empty
-            if not self.prediction:    
-                y[idx,] = [float(x) for x in batch_data[idx][1][1:-1].split(" ")]
-        
-        
+            if not self.prediction:
+                out = np.array(batch_data[idx][1], dtype='float')
+                y[idx,] = out
+
         return X, y
 
 
 if __name__ == "__main__":
 
-    training_data = DataGenerator(csv_filename="./training.csv", data_path=DATA_DIRECTORY)
+    training_data = DataGenerator(csv_filename="./training.csv",
+                                    data_path=DATA_DIRECTORY,
+                                    batch_size=1,
+                                    augment=True,
+                                    dims=(299,299),
+                                    subtype = "intraparenchymal",
+                                    channel_types = ['subdural','soft_tissue','brain'])
     images, masks = training_data.__getitem__(1)
 
-    print(masks)
+    # print(masks)
+    # print(images)

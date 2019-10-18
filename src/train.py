@@ -1,3 +1,14 @@
+#################    --INSTRUCTIONS TO RUN--   #################
+
+# start training via:
+# python train.py {model-name}-{dims}-{loss}-{subtype}-{monthDay-version}
+# e.g.
+# python train.py resnet50-dim224x224-bce-intraparenchymal-oct18v1
+
+#################    --INSTRUCTIONS TO RUN--   #################
+
+
+
 import sys
 import os
 import numpy as np
@@ -7,7 +18,7 @@ from tensorflow import keras as K
 from tensorflow import ConfigProto
 from tensorflow import InteractiveSession
 # from tensorflow.keras import metrics.CategoricalCrossentropy
-from tensorflow.keras.losses import CategoricalCrossentropy
+from tensorflow.keras.losses import BinaryCrossentropy
 from tensorflow.keras.applications import ResNet50
 
 import data_flow
@@ -28,27 +39,28 @@ DATA_DIRECTORY = data_flow.TRAIN_DATA_PATH
 TRAIN_CSV = parse_config.TRAIN_CSV
 VALIDATE_CSV = parse_config.VALIDATE_CSV
 TENSORBOARD_DIR = os.path.join('tensorboards/', sys.argv[1])
-CLASS_WEIGHTS = [1.0, 1.0, 1.0, 1.0, 1.0, 2.0]
-BATCH_SIZE = 32
+BATCH_SIZE = 24
 EPOCHS = 15 
-DIMS = (224,224) #512,512 default
-RESIZE = True
+DIMS = (224,224)
 
 
 training_data_gen = DataGenerator(csv_filename=TRAIN_CSV,
                                     data_path=DATA_DIRECTORY,
                                     batch_size=BATCH_SIZE,
-                                    resize=RESIZE,
                                     dims=DIMS,
                                     augment=True,
-                                    window=False)
+                                    balance_data = True,
+                                    subtype = "intraventricular",
+                                    channel_types = ['subdural','soft_tissue','brain'])
+
 validation_data_gen = DataGenerator(csv_filename=VALIDATE_CSV,
                                     data_path=DATA_DIRECTORY,
                                     batch_size=BATCH_SIZE,
-                                    resize=RESIZE,
                                     dims=DIMS,
                                     augment=False,
-                                    window=False)
+                                    balance_data = True,
+                                    subtype = "intraventricular",
+                                    channel_types = ['subdural','soft_tissue','brain'])
 
 
 #################################  CALLBACKS  ################################
@@ -78,12 +90,14 @@ lr_sched = K.callbacks.LearningRateScheduler(lambda epoch: learning_rate * pow(d
 
 
 num_chan_in = 3
-height = 224
-width = 224
-num_classes = 6
+height = DIMS[0]
+width = DIMS[1]
+num_classes = 2
 bn_momentum = 0.99
 
 # inputs = K.layers.Input([height, width, num_chan_in], name="DICOM")
+# image_input = Input(shape=(224, 224, 3))
+# model = ResNet50(input_tensor=image_input, include_top=True,weights='imagenet')
 
 resnet_model = ResNet50(input_shape=[height, width, num_chan_in], 
                         weights='imagenet',
@@ -92,21 +106,20 @@ resnet_model = ResNet50(input_shape=[height, width, num_chan_in],
                         models = K.models,
                         layers = K.layers,
                         backend = K.backend)
-                        # pooling='avg'
+                        # pooling='avg' same thing as the layer below...
 
 global_avg_pool = K.layers.GlobalAveragePooling2D(name='avg_pool')(resnet_model.output)
 hemorrhage_output = K.layers.Dense(num_classes, activation="sigmoid", name='dense_output')(global_avg_pool)
 
 model = K.models.Model(inputs=resnet_model.input, outputs=hemorrhage_output)
 
-model.compile(loss=loss.weighted_log_loss,
+model.compile(loss=BinaryCrossentropy(),
                 optimizer=K.optimizers.Adam(lr = 5e-4, beta_1 = .9, beta_2 = .999, decay = 0.8),
-                metrics=[loss.weighted_loss])
+                metrics=[K.metrics.BinaryCrossentropy(), "accuracy"])#loss.weighted_loss
 
 ################################################################################# 
 #######################  YOUR MODEL DEFINITION ENDs HERE  #######################
 #################################################################################
-#K.losses.categorical_crossentropy, 
 
 # Here we go...
 model.fit_generator(training_data_gen, 
