@@ -73,6 +73,6 @@ validation_df = balanced_df.drop(train_df.index)
 test_df = None #TODO if we require or want this,possibly for CV, but for now train/val are fine.
 assert train_df.shape[0] + validation_df.shape[0] == balanced_df.shape[0]
 
-train_df.to_csv("../src/training.csv", index=False, header=False)
-validation_df.to_csv("../src/validation.csv", index=False, header=False)
-# test_df.to_csv("../src/validation.csv", index=False)
+train_df.to_csv("../src/training.csv", index=False, header=True)
+validation_df.to_csv("../src/validation.csv", index=False, header=True)
+# test_df.to_csv("../src/validation.csv", index=True)
