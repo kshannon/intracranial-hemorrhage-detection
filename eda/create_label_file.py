@@ -28,7 +28,7 @@ if os.path.exists(MASTER_CSV):
     master_df = pd.read_csv(MASTER_CSV)
 
     # Split the targets
-    master_df = master_df.head().progress_apply(split_targets, axis=1)
+    master_df = master_df.progress_apply(split_targets, axis=1)
 
 else:
     train_df = pd.read_csv(os.path.join(CSV_DIRECTORY, "stage_1_train.csv"))
