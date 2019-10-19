@@ -264,14 +264,14 @@ class DataGenerator(K.utils.Sequence):
             with pydicom.dcmread(filename) as ds:
                 intercept, slope = self.hounsfield_translation(ds)
                 img = ds.pixel_array.astype('float32') #astype(ds.pixel_array.dtype)
-                # img = np.array(img, dtype=np.float) # Real point of contention here....dtype='uint32'
+                # img = np.array(img, dtype=np.float) # Real point of contention here....dtype='uint8' looked really weird
 
                 channel_stack = []
                 for channel_type in self.channel_types:
                     windowed_channel = self.window_image(img, intercept, slope, window_type=channel_type)
 
                     if self.dims != img.shape:
-                        windowed_channel = cv2.resize(windowed_channel, self.dims, interpolation=cv2.INTER_AREA)
+                        windowed_channel = cv2.resize(windowed_channel, self.dims, interpolation=cv2.INTER_AREA) #vs. INTER_LINEAR...?
                     
                     norm_channel = self.normalize_img(np.array(windowed_channel, dtype=float))
                     channel_stack.append(norm_channel)
