@@ -40,40 +40,39 @@ TRAIN_CSV = parse_config.TRAIN_CSV
 VALIDATE_CSV = parse_config.VALIDATE_CSV
 TENSORBOARD_DIR = os.path.join('tensorboards/', sys.argv[1])
 BATCH_SIZE = 24
-EPOCHS = 15 
+EPOCHS = 15
 DIMS = (224,224)
 
+params = dict(dims=DIMS,
+          subtype="epidural",
+          channel_types=['subdural','soft_tissue','brain'])
 
 training_data_gen = DataGenerator(csv_filename=TRAIN_CSV,
                                     data_path=DATA_DIRECTORY,
                                     batch_size=BATCH_SIZE,
-                                    dims=DIMS,
                                     augment=True,
                                     balance_data = True,
-                                    subtype = "intraventricular",
-                                    channel_types = ['subdural','soft_tissue','brain'])
+                                    **params)
 
 validation_data_gen = DataGenerator(csv_filename=VALIDATE_CSV,
                                     data_path=DATA_DIRECTORY,
                                     batch_size=BATCH_SIZE,
-                                    dims=DIMS,
                                     augment=False,
                                     balance_data = True,
-                                    subtype = "intraventricular",
-                                    channel_types = ['subdural','soft_tissue','brain'])
+                                    **params)
 
 
 #################################  CALLBACKS  ################################
 
 # Saved models
 checkpoint = K.callbacks.ModelCheckpoint(os.path.join('../models/', sys.argv[1] + '.pb'), verbose=1, save_best_only=True)
-                                                       
-# TensorBoard    
+
+# TensorBoard
 tb_logs = K.callbacks.TensorBoard(log_dir=TENSORBOARD_DIR,
                                     update_freq='batch',
                                     profile_batch=0)
 
-# Interrupt training if `val_loss` stops improving for over 2 epochs                                    
+# Interrupt training if `val_loss` stops improving for over 2 epochs
 early_stop = K.callbacks.EarlyStopping(patience=2, monitor='val_loss')
 
 # Learning Rate
@@ -84,7 +83,7 @@ decay_steps = 1
 lr_sched = K.callbacks.LearningRateScheduler(lambda epoch: learning_rate * pow(decay_rate, np.floor(epoch / decay_steps)))
 
 
-################################################################################# 
+#################################################################################
 ######################  YOUR MODEL DEFINITION GOES IN HERE  #####################
 #################################################################################
 
@@ -99,7 +98,7 @@ bn_momentum = 0.99
 # image_input = Input(shape=(224, 224, 3))
 # model = ResNet50(input_tensor=image_input, include_top=True,weights='imagenet')
 
-resnet_model = ResNet50(input_shape=[height, width, num_chan_in], 
+resnet_model = ResNet50(input_shape=[height, width, num_chan_in],
                         weights='imagenet',
                         include_top=False,
                         utils = K.utils,
@@ -117,13 +116,12 @@ model.compile(loss=BinaryCrossentropy(),
                 optimizer=K.optimizers.Adam(lr = 5e-4, beta_1 = .9, beta_2 = .999, decay = 0.8),
                 metrics=[K.metrics.BinaryCrossentropy(), "accuracy"])#loss.weighted_loss
 
-################################################################################# 
+#################################################################################
 #######################  YOUR MODEL DEFINITION ENDs HERE  #######################
 #################################################################################
 
 # Here we go...
-model.fit_generator(training_data_gen, 
-                    validation_data=validation_data_gen, 
+model.fit_generator(training_data_gen,
+                    validation_data=validation_data_gen,
                     callbacks=[lr_sched, checkpoint, tb_logs, early_stop],
                     epochs=EPOCHS)
-
