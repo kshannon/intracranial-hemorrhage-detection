@@ -10,6 +10,13 @@ Diagnosing and locating an intracranial hemorrhage from neurological symptoms (e
 ## Data
 The dataset has been provided by the Radiological Society of North America (RSNA®) in collaboration with members of the American Society of Neuroradiology and MD.ai.
 
+## Data Augmentation
+Data is augmented via random flips (vertical and horizontal), rotations (+/- 10 degrees), Salt&Pepper noise, and affine transformations (deformation) to help capture the invariants. This also helps to upsample class 1 data. We also window channels sepretly. In the image below we show a 3 channel img combined via np.dstack(), and the corrosponding individual channels. The windowing used on this particular hounsfield normalized data are: brain, subdural, and blood. We also apply image normalization to help the CNN. 
+
+![sample_data_augmentation](./images/sample_data_augmentation.png "Sample Data Augmentation")
+
+Furthermore we also downsample class 0 data by randomly selecting images to match the number of class 1 training data. When training binary cross entropy for "any" class 1 subtype, we set all subtypes to class 1 and an equal amount of class 0 to 0 
+
 ## Model
 * Test Submission: First approach was the test the submission script and manually mark each subtype, including All, with a probability value of 0.15
 * Naive Baseline: Pass
