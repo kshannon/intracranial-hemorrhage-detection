@@ -53,7 +53,7 @@ class DataGenerator(K.utils.Sequence):
                  batch_size=32,
                  channels = 3,
                  dims = (512,512),
-                 num_classes = 2,
+                 num_classes = 1,
                  shuffle=True,
                  prediction=False,
                  augment=False,
@@ -303,7 +303,7 @@ if __name__ == "__main__":
                                     batch_size=1,
                                     augment=True,
                                     dims=(299,299),
-                                    subtype = "intraparenchymal",
+                                    subtype = "any",
                                     channel_types = ['subdural','soft_tissue','brain'])
     images, masks = training_data.__getitem__(1)
 

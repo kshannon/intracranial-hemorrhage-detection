@@ -95,7 +95,7 @@ csv_logger = K.callbacks.CSVLogger('../logs/' + sys.argv[1] + '.csv')
 num_chan_in = 3
 height = DIMS[0]
 width = DIMS[1]
-num_classes = 2
+num_classes = 1
 bn_momentum = 0.99
 kernel_initializer="he_uniform" #TODO: can we use this as a passed param to predefinned Keras models?
 
@@ -114,13 +114,13 @@ inceptionResnetV2_model = InceptionResNetV2(input_shape=[height, width, num_chan
                         # pooling='avg' same thing as the layer below...
 
 global_avg_pool = K.layers.GlobalAveragePooling2D(name='avg_pool')(inceptionResnetV2_model.output)
-hemorrhage_output = K.layers.Dense(num_classes, activation="softmax", name='dense_output')(global_avg_pool)
+hemorrhage_output = K.layers.Dense(num_classes, activation="sigmoid", name='dense_output')(global_avg_pool)
 
 model = K.models.Model(inputs=inceptionResnetV2_model.input, outputs=hemorrhage_output)
 
 model.compile(loss=BinaryCrossentropy(),
                 optimizer=K.optimizers.Adam(lr = 5e-4, beta_1 = .9, beta_2 = .999, decay = 0.8),
-                metrics=[K.metrics.BinaryCrossentropy(), "accuracy"])#loss.weighted_loss
+                metrics=[K.metrics.AUC(), "accuracy"])#loss.weighted_loss
 
 ################################################################################# 
 #######################  YOUR MODEL DEFINITION ENDs HERE  #######################
