@@ -114,7 +114,7 @@ inceptionResnetV2_model = InceptionResNetV2(input_shape=[height, width, num_chan
                         # pooling='avg' same thing as the layer below...
 
 global_avg_pool = K.layers.GlobalAveragePooling2D(name='avg_pool')(inceptionResnetV2_model.output)
-hemorrhage_output = K.layers.Dense(num_classes, activation="sigmoid", name='dense_output')(global_avg_pool)
+hemorrhage_output = K.layers.Dense(num_classes, activation="softmax", name='dense_output')(global_avg_pool)
 
 model = K.models.Model(inputs=inceptionResnetV2_model.input, outputs=hemorrhage_output)
 
