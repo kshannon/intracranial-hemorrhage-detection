@@ -19,7 +19,7 @@ from tensorflow import ConfigProto
 from tensorflow import InteractiveSession
 # from tensorflow.keras import metrics.CategoricalCrossentropy
 from tensorflow.keras.losses import BinaryCrossentropy
-from tensorflow.keras.applications import InceptionResNetV2
+from tensorflow.keras.applications import MobileNetV2
 
 import data_flow
 import parse_config
@@ -39,13 +39,13 @@ DATA_DIRECTORY = data_flow.TRAIN_DATA_PATH
 TRAIN_CSV = parse_config.TRAIN_CSV
 VALIDATE_CSV = parse_config.VALIDATE_CSV
 TENSORBOARD_DIR = os.path.join('tensorboards/', sys.argv[1])
-BATCH_SIZE = 32
+BATCH_SIZE = 8
 EPOCHS = 20 
 DIMS = (512,512)
 
 params = dict(dims=DIMS,
           subtype="any",
-          channel_types=['hu_norm','brain','soft_tissue'])
+          sigmoid = True,)
 
 training_data_gen = DataGenerator(csv_filename=TRAIN_CSV,
                                     data_path=DATA_DIRECTORY,
@@ -104,23 +104,23 @@ kernel_initializer="he_uniform" #TODO: can we use this as a passed param to pred
 # model = ResNet50(input_tensor=image_input, include_top=True,weights='imagenet')
 # kernel_initializer="he_uniform" can we add this to pretrained mod
 
-inceptionResnetV2_model = InceptionResNetV2(input_shape=[height, width, num_chan_in], 
+MobileNetV2_model = MobileNetV2(input_shape=[height, width, num_chan_in], 
                         include_top=False,
                         utils = K.utils,
                         models = K.models,
                         layers = K.layers,
-                        backend = K.backend)
-                        # weights='imagenet',
+                        backend = K.backend,
+                        weights = None)
                         # pooling='avg' same thing as the layer below...
 
-global_avg_pool = K.layers.GlobalAveragePooling2D(name='avg_pool')(inceptionResnetV2_model.output)
+global_avg_pool = K.layers.GlobalAveragePooling2D(name='avg_pool')(MobileNetV2_model.output)
 hemorrhage_output = K.layers.Dense(num_classes, activation="sigmoid", name='dense_output')(global_avg_pool)
 
-model = K.models.Model(inputs=inceptionResnetV2_model.input, outputs=hemorrhage_output)
+model = K.models.Model(inputs=MobileNetV2_model.input, outputs=hemorrhage_output)
 
 model.compile(loss=BinaryCrossentropy(),
                 optimizer=K.optimizers.Adam(lr = 5e-4, beta_1 = .9, beta_2 = .999, decay = 0.8),
-                metrics=[K.metrics.AUC(), "accuracy"])#loss.weighted_loss
+                metrics=[K.metrics.AUC(), K.metrics.BinaryAccuracy()])#loss.weighted_loss
 
 ################################################################################# 
 #######################  YOUR MODEL DEFINITION ENDs HERE  #######################

@@ -50,13 +50,14 @@ class DataGenerator(K.utils.Sequence):
     def __init__(self,
                  csv_filename,
                  data_path,
-                 batch_size=32,
+                 batch_size = 32,
                  channels = 3,
                  dims = (512,512),
                  num_classes = 1,
-                 shuffle=True,
-                 prediction=False,
-                 augment=False,
+                 shuffle = True,
+                 prediction = False,
+                 augment = False,
+                 sigmoid = False,
                  subtype = "any",
                  balance_data = True,
                  channel_types = ['hu_norm','hu_norm','hu_norm']):
@@ -71,6 +72,7 @@ class DataGenerator(K.utils.Sequence):
         self.prediction = prediction
         self.augment = augment
         self.shuffle = shuffle
+        self.sigmoid = sigmoid
         self.channel_types = channel_types
         self.subtype = subtype
         self.balance_data = balance_data
@@ -190,6 +192,39 @@ class DataGenerator(K.utils.Sequence):
         img[img > img_max] = img_max
         return img
 
+    def sigmoid_window(self, img, window_center, window_width, U=1.0, eps=(1.0 / 255.0)):
+        intercept, slope = self.hounsfield_translation(img)
+        img = img.pixel_array * slope + intercept
+        ue = np.log((U / eps) - 1.0)
+        W = (2 / window_width) * ue
+        b = ((-2 * window_center) / window_width) * ue
+        z = W * img + b
+        img = U / (1 + np.power(np.e, -1.0 * z))
+        img = (img - np.min(img)) / (np.max(img) - np.min(img))
+        return img
+
+    def sigmoid_bsb_window(self, img):
+        '''
+        Attribution: Sigmoid & BSB img code/idea comes from Ryan Epp's 
+        https://www.kaggle.com/reppic/gradient-sigmoid-windowing/notebook awesome kernel.
+        '''
+        brain_img = self.sigmoid_window(img, 40, 80)
+        subdural_img = self.sigmoid_window(img, 80, 200)
+        bone_img = self.sigmoid_window(img, 600, 2000)
+
+        if self.dims != brain_img.shape:
+            brain_img = cv2.resize(brain_img, self.dims, interpolation=cv2.INTER_LINEAR)
+        if self.dims != subdural_img.shape:
+            subdural_img = cv2.resize(subdural_img, self.dims, interpolation=cv2.INTER_LINEAR)
+        if self.dims != bone_img.shape:
+            bone_img = cv2.resize(bone_img, self.dims, interpolation=cv2.INTER_LINEAR)
+        
+        bsb_img = np.zeros((brain_img.shape[0], brain_img.shape[1], 3))
+        bsb_img[:, :, 0] = brain_img
+        bsb_img[:, :, 1] = subdural_img
+        bsb_img[:, :, 2] = bone_img
+        return bsb_img
+
     def rotate_img(self, img):
         degree = random.randrange(-10, 10)
         return ndimage.rotate(img, degree, reshape=False)
@@ -236,6 +271,9 @@ class DataGenerator(K.utils.Sequence):
         distored_image = map_coordinates(image, indices, order=1, mode='reflect')
         return distored_image.reshape(image.shape)
     
+    def crop_img(self, img):
+        pass
+
     def augment_img(self, img):
         """
         Given a normalized and windowed 3 channel image, apply random augmentation
@@ -262,30 +300,36 @@ class DataGenerator(K.utils.Sequence):
         for idx in range(self.batch_size):
             filename = os.path.join(self.data_path, batch_data[idx][0])
             with pydicom.dcmread(filename) as ds:
-                intercept, slope = self.hounsfield_translation(ds)
-                img = ds.pixel_array.astype('float32') #astype(ds.pixel_array.dtype)
-                # img = np.array(img, dtype=np.float) # Real point of contention here....dtype='uint8' looked really weird
 
-                channel_stack = []
-                for channel_type in self.channel_types:
-                    windowed_channel = self.window_image(img, intercept, slope, window_type=channel_type)
+                # Use a sigmoid windowing scheme with brain, subdural, bone windows
+                if self.sigmoid:
+                    rgb = self.sigmoid_bsb_window(ds)
+                    if self.augment:
+                        rgb = self.augment_img(rgb)
+                    X[idx,] = rgb
 
-                    if self.dims != img.shape:
-                        windowed_channel = cv2.resize(windowed_channel, self.dims, interpolation=cv2.INTER_AREA) #vs. INTER_LINEAR...?
-                    
-                    norm_channel = self.normalize_img(np.array(windowed_channel, dtype=float))
-                    channel_stack.append(norm_channel)
+                # Use a traditional non sigmoid windowing scheme, windows passed as args to the class initializer
+                if not self.sigmoid:
+                    intercept, slope = self.hounsfield_translation(ds)
+                    img = ds.pixel_array #.astype('float32') #astype(ds.pixel_array.dtype)
+                    # img = np.array(img, dtype=np.float) # Real point of contention here....dtype='uint8' looked really weird
 
-                rgb = np.dstack(channel_stack)
-                if self.augment:
-                    rgb = self.augment_img(rgb)
+                    channel_stack = []
+                    for channel_type in self.channel_types:
+                        windowed_channel = self.window_image(img, intercept, slope, window_type=channel_type)
 
-                # DEBUGGING - plot images after windowing/HU_norm
-                # imgplot = plt.imshow(rgb, cmap=plt.cm.bone)
-                # plt.show()
+                        if self.dims != img.shape:
+                            windowed_channel = cv2.resize(windowed_channel, self.dims, interpolation=cv2.INTER_LINEAR) #vs. INTER_LINEAR...?
+                        
+                        norm_channel = self.normalize_img(np.array(windowed_channel, dtype=float))
+                        channel_stack.append(norm_channel)
 
-                # add three channel "rgb" image to batch's index. rinse & repeat.
-                X[idx,] = rgb
+                    rgb = np.dstack(channel_stack)
+                    if self.augment:
+                        rgb = self.augment_img(rgb)
+
+                    # add three channel "rgb" image to batch's index. rinse & repeat.
+                    X[idx,] = rgb
 
 
             # If doing inference/prediction do not attempt to pass y value, leave as empty
@@ -302,10 +346,24 @@ if __name__ == "__main__":
                                     data_path=DATA_DIRECTORY,
                                     batch_size=1,
                                     augment=True,
-                                    dims=(299,299),
+                                    dims=(512,512),
+                                    sigmoid = True,
                                     subtype = "any",
                                     channel_types = ['subdural','soft_tissue','brain'])
     images, masks = training_data.__getitem__(1)
 
     # print(masks)
     # print(images)
+
+
+     # DEBUGGING - plot images after windowing/HU_norm
+                    # print(X.shape)
+                    # imgplot = plt.imshow(rgb)
+                    # r = plt.imshow(rgb[:,:,0])
+                    # g = plt.imshow(rgb[:,:,1])
+                    # b = plt.imshow(rgb[:,:,2])
+                    # plt.show()
+                    # sys.exit()
+                     # DEBUGGING - plot images after windowing/HU_norm
+                    # imgplot = plt.imshow(rgb, cmap=plt.cm.bone)
+                    # plt.show()
