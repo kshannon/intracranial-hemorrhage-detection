@@ -16,10 +16,14 @@ import pydicom
 from tensorflow import keras as K
 import data_flow
 
+from tqdm import tqdm
+from multiprocessing import  Pool
+
+
 # debuggin
 # import matplotlib.pylab as plt
 
-
+np.seterr(invalid='raise', divide='raise')
 DATA_DIRECTORY = data_flow.TRAIN_DATA_PATH
 
 
@@ -83,6 +87,7 @@ class DataGenerator(K.utils.Sequence):
             if self.subtype == "any":
                 df_csv = pd.read_csv(csv_filename)
                 df_subtype = df_csv[['filename',self.subtype]]
+                df_subtype = df_subtype[df_subtype.filename != 'ID_470e639ae.dcm']
                 self.df = df_subtype.reset_index(drop=True)
             else:
                 if self.balance_data:
@@ -101,6 +106,7 @@ class DataGenerator(K.utils.Sequence):
 
                     # Reconstitute balanced dataset, shuffle whole dataset
                     balanced_df = pd.concat([class1_df, class0_df], ignore_index=True)
+                    balanced_df = balanced_df[balanced_df.filename != 'ID_470e639ae.dcm']
                     balanced_df = balanced_df.sample(frac=1, random_state=13).reset_index(drop=True)
                     self.df = balanced_df
 
@@ -110,6 +116,7 @@ class DataGenerator(K.utils.Sequence):
                     df_subtype = df_csv[['filename', self.subtype, 'any']]
                     mask_df = df_subtype.loc[df_subtype['any'] == 1]
                     mask_df.drop('any', axis=1, inplace=True)
+                    mask_df = mask_df[mask_df.filename != 'ID_470e639ae.dcm']
                     self.df = mask_df.reset_index(drop=True)
 
         self.indexes = np.arange(len(self.df))
@@ -192,25 +199,31 @@ class DataGenerator(K.utils.Sequence):
         img[img > img_max] = img_max
         return img
 
-    def sigmoid_window(self, img, window_center, window_width, U=1.0, eps=(1.0 / 255.0)):
+    def sigmoid_window(self, img, window_center, window_width, filename, U=1.0, eps=(1.0 / 255.0)):
         intercept, slope = self.hounsfield_translation(img)
         img = img.pixel_array * slope + intercept
         ue = np.log((U / eps) - 1.0)
         W = (2 / window_width) * ue
         b = ((-2 * window_center) / window_width) * ue
         z = W * img + b
-        img = U / (1 + np.power(np.e, -1.0 * z))
-        img = (img - np.min(img)) / (np.max(img) - np.min(img))
+        try:
+            img = U / (1 + np.power(np.e, -1.0 * z))
+            img = (img - np.min(img)) / (np.max(img) - np.min(img))
+        except FloatingPointError as error:
+            print('#'*50)
+            print(error)
+            print('filename: ' + filename)
+            print('#'*50)
         return img
 
-    def sigmoid_bsb_window(self, img):
+    def sigmoid_bsb_window(self, img, filename):
         '''
         Attribution: Sigmoid & BSB img code/idea comes from Ryan Epp's 
         https://www.kaggle.com/reppic/gradient-sigmoid-windowing/notebook awesome kernel.
         '''
-        brain_img = self.sigmoid_window(img, 40, 80)
-        subdural_img = self.sigmoid_window(img, 80, 200)
-        bone_img = self.sigmoid_window(img, 600, 2000)
+        brain_img = self.sigmoid_window(img, 40, 80, filename)
+        subdural_img = self.sigmoid_window(img, 80, 200, filename)
+        bone_img = self.sigmoid_window(img, 600, 2000, filename)
 
         if self.dims != brain_img.shape:
             brain_img = cv2.resize(brain_img, self.dims, interpolation=cv2.INTER_LINEAR)
@@ -303,7 +316,7 @@ class DataGenerator(K.utils.Sequence):
 
                 # Use a sigmoid windowing scheme with brain, subdural, bone windows
                 if self.sigmoid:
-                    rgb = self.sigmoid_bsb_window(ds)
+                    rgb = self.sigmoid_bsb_window(ds, filename)
                     if self.augment:
                         rgb = self.augment_img(rgb)
                     X[idx,] = rgb
@@ -344,16 +357,24 @@ if __name__ == "__main__":
 
     training_data = DataGenerator(csv_filename="./training.csv",
                                     data_path=DATA_DIRECTORY,
-                                    batch_size=1,
+                                    batch_size=32,
                                     augment=True,
-                                    dims=(512,512),
+                                    dims=(224,224),
                                     sigmoid = True,
                                     subtype = "any",
                                     channel_types = ['subdural','soft_tissue','brain'])
-    images, masks = training_data.__getitem__(1)
+    # images, masks = training_data.__getitem__(1)
+    for i in tqdm(range(4368)):
+        images, masks = training_data.__getitem__(i)
+        # print('batch good')
 
     # print(masks)
     # print(images)
+
+
+
+# ID_470e639ae.dcm
+
 
 
      # DEBUGGING - plot images after windowing/HU_norm
