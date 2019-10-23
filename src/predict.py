@@ -6,6 +6,7 @@ import numpy as np
 import csv
 import sys
 import os
+import math
 from tqdm import tqdm
 import pydicom
 import tensorflow as tf
@@ -65,60 +66,77 @@ INTRACRANIAL_HEMORRHAGE_SUBTYPES = ["epidural",
 def load_models(subtype):
     models = []
     for model in MODELS[subtype]:
-        loaded_model = tf.keras.models.load_model(os.path.join(MODEL_PATH, model + MODEL_EXT))
+        models.append(tf.keras.models.load_model(os.path.join(MODEL_PATH, model + MODEL_EXT)))
         print('Great! Just Loaded: ' + model)
-        models.append(loaded_model)
     return models
 
-def predict_ih_subtype(model_array):
-    pass
-    # do the thing, i.e. TODO: for each model predictict, then abg the preictions then return it
+
+def predict_on_img(model_array, img, predicting_any=False):
+    preds = []
+    for model in model_array:
+        prediction = model.predict(img)
+        preds.append(np.squeeze(prediction))
+        prediction = sum(preds) / float(len(preds))
+        # force predictions onj subtype 'any' to be 1 or 0
+        if predicting_any and prediction > 0.5:
+            prediction = math.ceil(prediction)
+        if predicting_any and prediction < 0.5:
+            prediction = math.floor(prediction)
     return prediction
 
 
 def main():
     # load models
-    model_epidural = load_model(subtype)
-    model_intraparenchymal = load_model(subtype)
-    model_intraventricular = load_model(subtype)
-    model_subarachnoid = load_model(subtype)
-    model_subdural = load_model(subtype)
-    model_any = load_model(subtype)
+    epidural_models = load_models("epidural")
+    intraparenchymal_models = load_models("intraparenchymal")
+    intraventricular_models = load_models('intraventricular')
+    subarachnoid_models = load_models('subarachnoid')
+    subdural_models = load_models('subdural')
+    any_models = load_models('any')
 
     with open(SUBMISSION_NAME, 'a+', newline='') as outfile:
         writer = csv.writer(outfile)
         writer.writerow(['Id','Label'])
 
         for idx in tqdm(TEST_DATA_GEN.indexes):
-            images, labels = TEST_DATA_GEN.__getitem__(idx) #ignore labels, just an empty obj
+            img, labels = TEST_DATA_GEN.__getitem__(idx) #ignore labels, just an empty obj
             filename = TEST_DATA_GEN.df.iloc[idx,0]
 
 
-            # test for any class
-            any_prediction = []
-            for model in model_any:
-                prediction = model.predict(images)
-                any.predictions.append(np.squeeze(prediction))
-            if len(any_prediction) > 1:
-                # TODO: avg_any_prediction = avergae or sigmoid the predictions list for any
+            # test for subtype any
+            pred_any = predict_on_img(any_models, img)
+
+            # Handle the case where we predict no occurrence of 'any' IH
+            if pred_any == 0:
+                filename_pred_vector = [0.0, 0.0, 0.0, 0.0, 0.0, pred_any]
+                for filename_pred in zip(INTRACRANIAL_HEMORRHAGE_SUBTYPES, filename_pred_vector):
+                    dicom_id = filename[:-4] + "_" + filename_pred[0]
+                    # print(readable_id, subtype[1])
+                    writer.writerow([dicom_id, filename_pred[1]])
+                continue
             
-            if any_prediction = 0:
-                for subtype in zip(INTRACRANIAL_HEMORRHAGE_SUBTYPES, [0.0, 0.0, 0.0, 0.0, 0.0, any_prediction]):
-                    readable_id = filename[:-4] + "_" + subtype[0]
+            # Handle the case for when we think there is occurance of 'any' IH, lets try to determine the type
+            if pred_any > 0:
+                pred_epidural = predict_on_img(epidural_models, img)
+                pred_intraparenchymal = predict_on_img(intraparenchymal_models, img)
+                pred_intraventricular = predict_on_img(intraventricular_models, img)
+                pred_subarachnoid = predict_on_img(subarachnoid_models, img)
+                pred_subdural = predict_on_img(subdural_models, img)
+                filename_pred_vector = [pred_epidural,
+                                        pred_intraparenchymal,
+                                        pred_intraventricular,
+                                        pred_subarachnoid,
+                                        pred_subdural,
+                                        pred_any]
+                for filename_pred in zip(INTRACRANIAL_HEMORRHAGE_SUBTYPES, filename_pred_vector):
+                    dicom_id = filename[:-4] + "_" + filename_pred[0]
                     # print(readable_id, subtype[1])
-                    writer.writerow([readable_id, subtype[1]])
+                    writer.writerow([dicom_id, filename_pred[1]])
                 continue
-            else:
 
-            # TODO:
-                # make predictions on other subtype models
-                # write rows to csv
+        
 
-                for subtype in zip(INTRACRANIAL_HEMORRHAGE_SUBTYPES, [0.0, 0.0, 0.0, 0.0, 0.0, any_prediction]):
-                    readable_id = filename[:-4] + "_" + subtype[0]
-                    # print(readable_id, subtype[1])
-                    writer.writerow([readable_id, subtype[1]])
-                continue
+
 
 
 
