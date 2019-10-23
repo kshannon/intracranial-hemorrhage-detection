@@ -37,7 +37,7 @@ class DataGenerator(K.utils.Sequence):
     Use the subtype argument to tell the network which subtype to train for. Each one trains binary cross entropy.
     'any' will train on all data, anyother subtype will train only on IH - positive data, where class 1 is the chosen
     subtype and all other subtypes are now labeled class 0. We can train this way because each real subtype has mutually
-    exclusive probability. 
+    exclusive probability.
 
     Acceptable strings for applying windowing are channel_types='' ['hu_norm',
                                                                     'brain',
@@ -47,7 +47,7 @@ class DataGenerator(K.utils.Sequence):
     Acceptable strings for subtype='' ['any',
                                         'intraparenchymal',
                                         'intraventricular',
-                                        'subarachoid',
+                                        'subarachnoid',
                                         'subdural',
                                         'epidural'
     """
@@ -218,7 +218,7 @@ class DataGenerator(K.utils.Sequence):
 
     def sigmoid_bsb_window(self, img, filename):
         '''
-        Attribution: Sigmoid & BSB img code/idea comes from Ryan Epp's 
+        Attribution: Sigmoid & BSB img code/idea comes from Ryan Epp's
         https://www.kaggle.com/reppic/gradient-sigmoid-windowing/notebook awesome kernel.
         '''
         brain_img = self.sigmoid_window(img, 40, 80, filename)
@@ -231,7 +231,7 @@ class DataGenerator(K.utils.Sequence):
             subdural_img = cv2.resize(subdural_img, self.dims, interpolation=cv2.INTER_LINEAR)
         if self.dims != bone_img.shape:
             bone_img = cv2.resize(bone_img, self.dims, interpolation=cv2.INTER_LINEAR)
-        
+
         bsb_img = np.zeros((brain_img.shape[0], brain_img.shape[1], 3))
         bsb_img[:, :, 0] = brain_img
         bsb_img[:, :, 1] = subdural_img
@@ -245,13 +245,13 @@ class DataGenerator(K.utils.Sequence):
     def flip_img(self, img):
         axis = random.choice([0, 1])
         return np.flip(img, axis=axis)
-    
+
     def sp_noise(self, image, prob):
         '''
         Add salt and pepper noise to image
         prob: Probability of the noise
         '''
-        thres = 1 - prob 
+        thres = 1 - prob
         for i in range(image.shape[0]):
             for j in range(image.shape[1]):
                 rdn = random.random()
@@ -283,7 +283,7 @@ class DataGenerator(K.utils.Sequence):
 
         distored_image = map_coordinates(image, indices, order=1, mode='reflect')
         return distored_image.reshape(image.shape)
-    
+
     def crop_img(self, img):
         pass
 
@@ -300,7 +300,7 @@ class DataGenerator(K.utils.Sequence):
         if random.choice([0, 1]) == 1:
             img = self.elastic_transform(img,alpha=400,sigma=8)
         return img
-    
+
     def __data_generation(self, indexes):
         """
         Generates data containing batch_size samples
@@ -333,7 +333,7 @@ class DataGenerator(K.utils.Sequence):
 
                         if self.dims != img.shape:
                             windowed_channel = cv2.resize(windowed_channel, self.dims, interpolation=cv2.INTER_LINEAR) #vs. INTER_LINEAR...?
-                        
+
                         norm_channel = self.normalize_img(np.array(windowed_channel, dtype=float))
                         channel_stack.append(norm_channel)
 
