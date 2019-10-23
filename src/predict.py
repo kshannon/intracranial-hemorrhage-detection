@@ -13,7 +13,6 @@ import tensorflow as tf
 import data_flow
 from data_loader import DataGenerator
 import parse_config
-# from custom_loss import weighted_log_loss, weighted_loss
 
 
 # comment out if using tensorflow 2.x
@@ -64,17 +63,20 @@ def load_models(subtype):
     return models
 
 
-def predict_on_img(model_array, img, predicting_any=False):
+def predict_on_img(model_array, img):
     preds = []
     for model in model_array:
         prediction = model.predict(img)
         preds.append(np.squeeze(prediction))
         prediction = sum(preds) / float(len(preds))
-        # force predictions onj subtype 'any' to be 1 or 0
-        if predicting_any and prediction > 0.5:
-            prediction = math.ceil(prediction)
-        if predicting_any and prediction < 0.5:
-            prediction = math.floor(prediction)
+    return prediction
+
+def round_prediction(pred):
+        # force predictions on subtype 'any' to be 1 or 0
+    if pred > 0.5:
+        prediction = math.ceil(pred)
+    if pred < 0.5:
+        prediction = math.floor(pred)
     return prediction
 
 
@@ -90,7 +92,7 @@ def main():
 
     with open(SUBMISSION_NAME, 'a+', newline='') as outfile:
         writer = csv.writer(outfile)
-        writer.writerow(['Id','Label'])
+        writer.writerow(['Id','Label','Rounded_Label'])
 
         for idx in tqdm(TEST_DATA_GEN.indexes):
             img, labels = TEST_DATA_GEN.__getitem__(idx) #ignore labels, just an empty obj
@@ -98,15 +100,17 @@ def main():
 
 
             # test for subtype any
-            pred_any = predict_on_img(any_models, img, predicting_any=True)
+            pred_any = predict_on_img(any_models, img)
+            rounded_any = round_prediction(pred_any)
 
             # Handle the case where we predict no occurrence of 'any' IH
             if pred_any == 0 or PREDICT_ONLY_ANY == True:
                 filename_pred_vector = [0.0, 0.0, 0.0, 0.0, 0.0, pred_any]
-                for filename_pred in zip(INTRACRANIAL_HEMORRHAGE_SUBTYPES, filename_pred_vector):
+                filename_pred_vector_rounded = [0.0, 0.0, 0.0, 0.0, 0.0, rounded_any]
+                for filename_pred in zip(INTRACRANIAL_HEMORRHAGE_SUBTYPES, filename_pred_vector, filename_pred_vector_rounded):
                     dicom_id = filename[:-4] + "_" + filename_pred[0]
                     # print(readable_id, subtype[1])
-                    writer.writerow([dicom_id, filename_pred[1]])
+                    writer.writerow([dicom_id, filename_pred[1], filename_pred[2]])
                 continue
             
             # Handle the case for when we think there is occurrence of 'any' IH, lets try to determine the type
@@ -122,10 +126,16 @@ def main():
                                         pred_subarachnoid,
                                         pred_subdural,
                                         pred_any]
-                for filename_pred in zip(INTRACRANIAL_HEMORRHAGE_SUBTYPES, filename_pred_vector):
+                filename_pred_vector_rounded = [pred_epidural,
+                                                pred_intraparenchymal,
+                                                pred_intraventricular,
+                                                pred_subarachnoid,
+                                                pred_subdural,
+                                                rounded_any]
+                for filename_pred in zip(INTRACRANIAL_HEMORRHAGE_SUBTYPES, filename_pred_vector, filename_pred_vector_rounded):
                     dicom_id = filename[:-4] + "_" + filename_pred[0]
                     # print(readable_id, subtype[1])
-                    writer.writerow([dicom_id, filename_pred[1]])
+                    writer.writerow([dicom_id, filename_pred[1], filename_pred[2]])
                 continue
 
 
