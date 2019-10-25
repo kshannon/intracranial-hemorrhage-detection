@@ -39,9 +39,9 @@ DATA_DIRECTORY = data_flow.TRAIN_DATA_PATH
 TRAIN_CSV = parse_config.TRAIN_CSV
 VALIDATE_CSV = parse_config.VALIDATE_CSV
 TENSORBOARD_DIR = os.path.join('tensorboards/', sys.argv[1])
-BATCH_SIZE = 8
+BATCH_SIZE = 32
 EPOCHS = 20 
-DIMS = (512,512)
+DIMS = (224,224)
 
 params = dict(dims=DIMS,
           subtype="any",
@@ -110,7 +110,7 @@ MobileNetV2_model = MobileNetV2(input_shape=[height, width, num_chan_in],
                         models = K.models,
                         layers = K.layers,
                         backend = K.backend,
-                        weights = None)
+                        weights = 'imagenet') # None
                         # pooling='avg' same thing as the layer below...
 
 global_avg_pool = K.layers.GlobalAveragePooling2D(name='avg_pool')(MobileNetV2_model.output)
