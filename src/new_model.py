@@ -77,6 +77,7 @@ import sys
 
 # from keras_applications.resnet import ResNet50
 from keras_applications.inception_v3 import InceptionV3
+from keras_applications.inception_resnet_v2 import InceptionResNetV2, preprocess_input
 
 from sklearn.model_selection import ShuffleSplit
 
@@ -423,9 +424,9 @@ class MyDeepModel:
                              models = keras.models, utils = keras.utils)
 
         x = keras.layers.GlobalAveragePooling2D(name='avg_pool')(engine.output)
-#         x = keras.layers.Dropout(0.2)(x)
-#         x = keras.layers.Dense(keras.backend.int_shape(x)[1], activation="relu", name="dense_hidden_1")(x)
-#         x = keras.layers.Dropout(0.1)(x)
+        x = keras.layers.Dropout(0.5)(x)
+        x = keras.layers.Dense(keras.backend.int_shape(x)[1], activation="relu", name="dense_hidden_1")(x)
+        x = keras.layers.Dropout(0.5)(x)
         out = keras.layers.Dense(6, activation="sigmoid", name='dense_output')(x)
 
         self.model = keras.models.Model(inputs=engine.input, outputs=out)
@@ -524,8 +525,11 @@ ss = ShuffleSplit(n_splits=10, test_size=0.1, random_state=42).split(df.index)
 train_idx, valid_idx = next(ss)
 
 # obtain model
-model = MyDeepModel(engine=InceptionV3, input_dims=(512,512, 3), batch_size=8, learning_rate=5e-4,
-                    num_epochs=10, decay_rate=0.8, decay_steps=1, weights="imagenet", verbose=1)
+# model = MyDeepModel(engine=InceptionV3, input_dims=(512,512, 3), batch_size=8, learning_rate=5e-4,
+#                     num_epochs=10, decay_rate=0.8, decay_steps=1, weights="imagenet", verbose=1)
+
+model = MyDeepModel(engine=InceptionResNetV2, input_dims=(512,512, 3), batch_size=8, learning_rate=5e-4,
+                    num_epochs=5, decay_rate=0.8, decay_steps=1, weights="imagenet", verbose=1)
 
 # obtain test + validation predictions (history.test_predictions, history.valid_predictions)
 history = model.fit_and_predict(df.iloc[train_idx], df.iloc[valid_idx], test_df)
