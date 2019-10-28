@@ -83,6 +83,7 @@ from sklearn.model_selection import ShuffleSplit
 
 test_images_dir = '../../data/stage_1_test_images/'
 train_images_dir = '../../data/stage_1_train_images/'
+model_filename = "inceptionResNet_{}.hdf5".format(datetime.now().strftime("%Y%m%d-%H%M%S"))
 
 # %% [markdown]
 # ### 0. Preprocessing (brain + subudral + soft)
@@ -132,7 +133,7 @@ dicom = pydicom.dcmread(train_images_dir + 'ID_5c8b5d701' + '.dcm')
 # 4045569      ID_5c8b5d701_subarachnoid      1
 # 4045570          ID_5c8b5d701_subdural      1
 # 4045571               ID_5c8b5d701_any      1
-plt.imshow(bsb_window(dicom), cmap=plt.cm.bone);
+#plt.imshow(bsb_window(dicom), cmap=plt.cm.bone);
 
 
 # %% [markdown]
@@ -168,14 +169,14 @@ def window_testing(img, window):
     return bsb_img
 
 # example of a "bad data point" (i.e. (dcm.BitsStored == 12) and (dcm.PixelRepresentation == 0) and (int(dcm.RescaleIntercept) > -100) == True)
-dicom = pydicom.dcmread(train_images_dir + "ID_036db39b7" + ".dcm")
-
-fig, ax = plt.subplots(1, 2)
-
-ax[0].imshow(window_testing(dicom, window_without_correction), cmap=plt.cm.bone);
-ax[0].set_title("original")
-ax[1].imshow(window_testing(dicom, window_with_correction), cmap=plt.cm.bone);
-ax[1].set_title("corrected");
+# dicom = pydicom.dcmread(train_images_dir + "ID_036db39b7" + ".dcm")
+#
+# fig, ax = plt.subplots(1, 2)
+#
+# ax[0].imshow(window_testing(dicom, window_without_correction), cmap=plt.cm.bone);
+# ax[0].set_title("original")
+# ax[1].imshow(window_testing(dicom, window_with_correction), cmap=plt.cm.bone);
+# ax[1].set_title("corrected");
 
 # %% [markdown]
 # ### 1. Helper functions
@@ -202,9 +203,9 @@ def _read(path, desired_size):
     return img
 
 # Another sanity check
-plt.imshow(
-    _read(train_images_dir+'ID_5c8b5d701'+'.dcm', (128, 128)), cmap=plt.cm.bone
-);
+# plt.imshow(
+#     _read(train_images_dir+'ID_5c8b5d701'+'.dcm', (128, 128)), cmap=plt.cm.bone
+# );
 
 # %% [markdown]
 # ### 2. Data generators
@@ -397,7 +398,7 @@ class PredictionCheckpoint(keras.callbacks.Callback):
                                    np.average(self.valid_predictions, axis=0,
                                               weights=[2**i for i in range(len(self.valid_predictions))])))
 
-        # here you could also save the predictions with np.save()
+        #here you could also save the predictions with np.save()
 
 
 class MyDeepModel:
@@ -433,15 +434,16 @@ class MyDeepModel:
 
         self.model = keras.models.Model(inputs=engine.input, outputs=out)
 
-        self.model.compile(loss="binary_crossentropy", optimizer=keras.optimizers.Adam(), metrics=["categorical_accuracy", "accuracy", weighted_loss])
+        #self.model.compile(loss="binary_crossentropy", optimizer=keras.optimizers.Adam(), metrics=["categorical_accuracy", "accuracy", weighted_loss])
+        self.model.compile(loss=weighted_log_loss, optimizer=keras.optimizers.Adam(), metrics=["categorical_accuracy", "accuracy", weighted_loss])
 
 
     def fit_and_predict(self, train_df, valid_df, test_df):
 
         # callbacks
-        pred_history = PredictionCheckpoint(test_df, valid_df, input_size=self.input_dims)
-        checkpointer = keras.callbacks.ModelCheckpoint(filepath='%s.hdf5' % self.engine.__name__, verbose=1, save_best_only=True)
-        scheduler = keras.callbacks.LearningRateScheduler(lambda epoch: self.learning_rate * pow(self.decay_rate, floor(epoch / self.decay_steps)))
+        #pred_history = PredictionCheckpoint(test_df, valid_df, input_size=self.input_dims)
+        checkpointer = keras.callbacks.ModelCheckpoint(filepath=model_filename, verbose=1, save_best_only=True)
+        #scheduler = keras.callbacks.LearningRateScheduler(lambda epoch: self.learning_rate * pow(self.decay_rate, floor(epoch / self.decay_steps)))
 
         self.model.fit_generator(
             DataGenerator(
@@ -460,12 +462,15 @@ class MyDeepModel:
                 self.input_dims,
                 train_images_dir
             ),
+            steps_per_epoch=3,
+            validation_steps=3,
             use_multiprocessing=True,
             workers=4,
-            callbacks=[pred_history, scheduler, checkpointer]
+            #callbacks=[pred_history, scheduler, checkpointer]
+            callbacks=[checkpointer]
         )
 
-        return pred_history
+        #return pred_history
 
     def save(self, path):
         self.model.save_weights(path)
@@ -536,19 +541,25 @@ train_idx, valid_idx = next(ss)
 # obtain model
 # model = MyDeepModel(engine=InceptionV3, input_dims=(512,512, 3), batch_size=8, learning_rate=5e-4,
 #                     num_epochs=10, decay_rate=0.8, decay_steps=1, weights="imagenet", verbose=1)
-
-model = MyDeepModel(engine=InceptionResNetV2, input_dims=(512,512, 3), batch_size=8, learning_rate=1e-3,
-                    num_epochs=10, decay_rate=0.8, decay_steps=1, weights="imagenet", verbose=1)
+input_dims=(512,512, 3)
+batch_size=8
+model = MyDeepModel(engine=InceptionResNetV2, input_dims=input_dims, batch_size=batch_size, learning_rate=1e-3,
+                    num_epochs=1, decay_rate=0.8, decay_steps=1, weights="imagenet", verbose=1)
 
 # obtain test + validation predictions (history.test_predictions, history.valid_predictions)
-history = model.fit_and_predict(df.iloc[train_idx], df.iloc[valid_idx], test_df)
+#history = model.fit_and_predict(df.iloc[train_idx], df.iloc[valid_idx], test_df)
+model.fit_and_predict(df.iloc[train_idx], df.iloc[valid_idx], test_df)
 
 
 # %% [markdown]
 # ### 6. Submit test predictions
 
 # %% [code]
-test_df.iloc[:, :] = np.average(history.test_predictions, axis=0, weights=[0, 1, 2, 4, 6]) # let's do a weighted average for epochs (>1)
+#test_df.iloc[:, :] = np.average(history.test_predictions, axis=0, weights=[0, 1, 2, 4, 6]) # let's do a weighted average for epochs (>1)
+
+# Load best model
+model = keras.models.load_model(model_filename, compile=False)
+test_df.iloc[:,:] = model.predict_generator(DataGenerator(test_df.index, None, batch_size, input_dims, test_images_dir), verbose=1)
 
 test_df = test_df.stack().reset_index()
 
