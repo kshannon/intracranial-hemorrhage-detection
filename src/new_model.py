@@ -115,6 +115,19 @@ def weighted_log_loss_metric(trues, preds):
 
 
 #### HELPER FUNCTIONS ####
+def _read(path, desired_size):
+    """Will be used in DataGenerator"""
+
+    dcm = pydicom.dcmread(path)
+    try:
+        img = bsb_window(dcm)
+    except:
+        img = np.zeros(desired_size)
+
+    img = cv2.resize(img, desired_size[:2], interpolation=cv2.INTER_LINEAR)
+
+    return img
+
 def correct_dcm(dcm):
     x = dcm.pixel_array + 1000
     px_mode = 4096
@@ -175,24 +188,7 @@ def window_testing(img, window):
     return bsb_img
 
 
-
-def _read(path, desired_size):
-    """Will be used in DataGenerator"""
-
-    dcm = pydicom.dcmread(path)
-
-    try:
-        img = bsb_window(dcm)
-    except:
-        img = np.zeros(desired_size)
-
-
-    img = cv2.resize(img, desired_size[:2], interpolation=cv2.INTER_LINEAR)
-
-    return img
-
-
-
+#### Data Generator Definition and Deep Learning Model Engine Definition ####
 class DataGenerator(keras.utils.Sequence):
 
     def __init__(self, list_IDs, labels=None, batch_size=1, img_size=(512, 512, 1),
@@ -248,7 +244,6 @@ class DataGenerator(keras.utils.Sequence):
                 X[i,] = _read(self.img_dir+ID+".dcm", self.img_size)
 
             return X
-
 
 class MyDeepModel:
 
@@ -328,6 +323,7 @@ class MyDeepModel:
         self.model.load_weights(path)
 
 
+
 if __name__ == "__main__":
 
     if TRAINING:
@@ -389,4 +385,4 @@ if __name__ == "__main__":
 
         test_df = test_df.drop(["Image", "Diagnosis"], axis=1)
 
-        test_df.to_csv('submission.csv', index=False)
+        test_df.to_csv(SUBMISSION_NAME, index=False)
