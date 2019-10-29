@@ -8,12 +8,12 @@ from math import ceil, floor, log
 from datetime import datetime
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 import pydicom
 from tqdm import tqdm_notebook as tqdm
 import cv2
 import tensorflow as tf
-import keras
+import tensorflow.keras as keras
 from keras import backend as K
 # from keras_applications.resnet import ResNet50
 from tensorflow.keras.applications import InceptionV3
@@ -229,7 +229,7 @@ class DataGenerator(keras.utils.Sequence):
             self.indices = np.arange(len(self.list_IDs))
 
     def __data_generation(self, list_IDs_temp):
-        X = np.empty((self.batch_size, *self.img_size))
+        X = np.empty((self.batch_size, self.img_size[0], self.img_size[1]))
 
         if self.labels is not None: # training phase
             Y = np.empty((self.batch_size, 6), dtype=np.float32)
