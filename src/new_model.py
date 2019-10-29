@@ -16,8 +16,9 @@ import tensorflow as tf
 import keras
 from keras import backend as K
 # from keras_applications.resnet import ResNet50
-from keras_applications.inception_v3 import InceptionV3
-from keras_applications.inception_resnet_v2 import InceptionResNetV2, preprocess_input
+from tensorflow.keras.applications import InceptionV3
+from tensorflow.keras.applications import InceptionResNetV2
+from tensorflow.keras.applications.inception_resnet_v2 import preprocess_input
 from sklearn.model_selection import ShuffleSplit
 import data_flow
 
@@ -373,6 +374,9 @@ if __name__ == "__main__":
 
         # Load resources for prediction
         test_df = read_testset()
+        print(test_df.head())
+        print(test_df.shape)
+        sys.exit()
         model = keras.models.load_model(MODEL_FILENAME, compile=False)
 
 
