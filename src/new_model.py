@@ -1,3 +1,6 @@
+# Attribution: Significant parts of this code were taken from []'s Kaggle Kernel and repurposed for our pipeline.
+#TODO: Tony, please fill in an attrbiution here wen you have a chance, thanks
+
 import sys
 import os
 import collections
@@ -26,14 +29,16 @@ PREDICTION = True
 TRAIN_DATA = data_flow.TRAIN_DATA_PATH
 TRAIN_CSV = parse_config.TRAIN_CSV
 VALIDATE_CSV = parse_config.VALIDATE_CSV
+WHOLE_TRAIN_CSV = "../../data/stage_1_train.csv"
 TEST_DATA = data_flow.TEST_DATA_PATH
 TEST_CSV = "../submissions/phase1_test_filenames.csv"
 
 # Load model
 MODEL_PATH = '../models/'
 MODEL_EXT = '.pb'
+MODEL_FILENAME = os.path.join(MODEL_PATH, sys.argv[1] + MODEL_EXT)
 SUBMISSION_NAME = os.path.join('../submissions/', sys.argv[1]+'-predictions.csv')
-MODEL_FILENAME = "inceptionResNet_{}.hdf5".format(datetime.now().strftime("%Y%m%d-%H%M%S"))
+# MODEL_FILENAME = "inceptionResNet_{}.hdf5".format(datetime.now().strftime("%Y%m%d-%H%M%S"))
 
 
 #### CUSTOM LOSS FUNCTIONS ####
@@ -171,8 +176,6 @@ def window_testing(img, window):
 
 
 
-
-
 def _read(path, desired_size):
     """Will be used in DataGenerator"""
 
@@ -188,35 +191,6 @@ def _read(path, desired_size):
 
     return img
 
-def read_testset(filename="../../stage_1_sample_submission.csv"):
-    df = pd.read_csv(filename)
-    df["Image"] = df["ID"].str.slice(stop=12)
-    df["Diagnosis"] = df["ID"].str.slice(start=13)
-
-    df = df.loc[:, ["Label", "Diagnosis", "Image"]]
-    df = df.set_index(['Image', 'Diagnosis']).unstack(level=-1)
-
-    return df
-
-def read_trainset(filename="../../data/stage_1_train.csv"):
-    df = pd.read_csv(filename)
-    df["Image"] = df["ID"].str.slice(stop=12)
-    df["Diagnosis"] = df["ID"].str.slice(start=13)
-
-    duplicates_to_remove = [
-        1598538, 1598539, 1598540, 1598541, 1598542, 1598543,
-        312468,  312469,  312470,  312471,  312472,  312473,
-        2708700, 2708701, 2708702, 2708703, 2708704, 2708705,
-        3032994, 3032995, 3032996, 3032997, 3032998, 3032999
-    ]
-
-    df = df.drop(index=duplicates_to_remove)
-    df = df.reset_index(drop=True)
-
-    df = df.loc[:, ["Label", "Diagnosis", "Image"]]
-    df = df.set_index(['Image', 'Diagnosis']).unstack(level=-1)
-
-    return df
 
 
 class DataGenerator(keras.utils.Sequence):
@@ -274,42 +248,6 @@ class DataGenerator(keras.utils.Sequence):
                 X[i,] = _read(self.img_dir+ID+".dcm", self.img_size)
 
             return X
-
-
-class PredictionCheckpoint(keras.callbacks.Callback):
-
-    def __init__(self, test_df, valid_df,
-                 test_images_dir=test_images_dir,
-                 valid_images_dir=train_images_dir,
-                 batch_size=32, input_size=(224, 224, 3)):
-
-        self.test_df = test_df
-        self.valid_df = valid_df
-        self.test_images_dir = test_images_dir
-        self.valid_images_dir = valid_images_dir
-        self.batch_size = batch_size
-        self.input_size = input_size
-
-    def on_train_begin(self, logs={}):
-        self.test_predictions = []
-        self.valid_predictions = []
-
-    def on_epoch_end(self,batch, logs={}):
-        self.test_predictions.append(
-            self.model.predict_generator(
-                DataGenerator(self.test_df.index, None, self.batch_size, self.input_size, self.test_images_dir), verbose=2)[:len(self.test_df)])
-
-        # Commented out to save time
-        self.valid_predictions.append(
-            self.model.predict_generator(
-                DataGenerator(self.valid_df.index, None, self.batch_size, self.input_size, self.valid_images_dir), verbose=2)[:len(self.valid_df)])
-
-        print("validation loss: %.4f" %
-              weighted_log_loss_metric(self.valid_df.values,
-                                   np.average(self.valid_predictions, axis=0,
-                                              weights=[2**i for i in range(len(self.valid_predictions))])))
-
-        #here you could also save the predictions with np.save()
 
 
 class MyDeepModel:
@@ -393,6 +331,23 @@ class MyDeepModel:
 if __name__ == "__main__":
 
     if TRAINING:
+        def read_trainset(filename=WHOLE_TRAIN_CSV):
+            df = pd.read_csv(filename)
+            df["Image"] = df["ID"].str.slice(stop=12)
+            df["Diagnosis"] = df["ID"].str.slice(start=13)
+            duplicates_to_remove = [
+                1598538, 1598539, 1598540, 1598541, 1598542, 1598543,
+                312468,  312469,  312470,  312471,  312472,  312473,
+                2708700, 2708701, 2708702, 2708703, 2708704, 2708705,
+                3032994, 3032995, 3032996, 3032997, 3032998, 3032999
+            ]
+            df = df.drop(index=duplicates_to_remove)
+            df = df.reset_index(drop=True)
+            df = df.loc[:, ["Label", "Diagnosis", "Image"]]
+            df = df.set_index(['Image', 'Diagnosis']).unstack(level=-1)
+
+            return df
+
         df = read_trainset()
         ss = ShuffleSplit(n_splits=10, test_size=0.1, random_state=42).split(df.index)
         train_idx, valid_idx = next(ss)
@@ -411,11 +366,22 @@ if __name__ == "__main__":
 
     
     if PREDICTION:
-        test_df = read_testset()
-        #test_df.iloc[:, :] = np.average(history.test_predictions, axis=0, weights=[0, 1, 2, 4, 6]) # let's do a weighted average for epochs (>1)
+        def read_testset(filename=TEST_CSV):
+            df = pd.read_csv(filename)
+            df["Image"] = df["ID"].str.slice(stop=12)
+            df["Diagnosis"] = df["ID"].str.slice(start=13)
+            df = df.loc[:, ["Label", "Diagnosis", "Image"]]
+            df = df.set_index(['Image', 'Diagnosis']).unstack(level=-1)
 
+            return df
+
+        # Load resources for prediction
+        test_df = read_testset()
         model = keras.models.load_model(MODEL_FILENAME, compile=False)
+
+
         test_df.iloc[:,:] = model.predict_generator(DataGenerator(test_df.index, None, batch_size, input_dims, test_images_dir), verbose=1)
+        #test_df.iloc[:, :] = np.average(history.test_predictions, axis=0, weights=[0, 1, 2, 4, 6]) # let's do a weighted average for epochs (>1)
 
         test_df = test_df.stack().reset_index()
 
