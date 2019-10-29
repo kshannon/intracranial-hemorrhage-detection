@@ -28,8 +28,8 @@ PREDICTION = True
 
 # Hook up data
 TRAIN_DATA = data_flow.TRAIN_DATA_PATH
-TRAIN_CSV = parse_config.TRAIN_CSV
-VALIDATE_CSV = parse_config.VALIDATE_CSV
+# TRAIN_CSV = parse_config.TRAIN_CSV
+# VALIDATE_CSV = parse_config.VALIDATE_CSV
 WHOLE_TRAIN_CSV = "../../data/stage_1_train.csv"
 TEST_DATA = data_flow.TEST_DATA_PATH
 TEST_CSV = "../submissions/phase1_test_filenames.csv"
