@@ -23,14 +23,20 @@ from sklearn.model_selection import ShuffleSplit
 import data_flow
 import parse_config
 
+
+from tensorflow.compat.v1 import ConfigProto
+from tensorflow.compat.v1 import InteractiveSession
 if parse_config.USING_RTX_20XX:
-    config = tf.ConfigProto()
+    # config = tf.ConfigProto()
+    # config.gpu_options.allow_growth = True
+    # tf.keras.backend.set_session(tf.Session(config=config))
+    config = ConfigProto()
     config.gpu_options.allow_growth = True
-    tf.keras.backend.set_session(tf.Session(config=config))
+    session = InteractiveSession(config=config)
 
 # Script Flags & Params
-TRAINING = TRUE
-PREDICTION = FALSE
+TRAINING = True
+PREDICTION = False
 
 INPUT_DIMS = (512,512,3)
 BATCH_SIZE = 6
@@ -343,8 +349,10 @@ class MyDeepModel:
                 self.input_dims,
                 TRAIN_DATA
             ),
-            steps_per_epoch=3,
-            validation_steps=3,
+            # steps_per_epoch=3,
+            steps_per_epoch = len(train_df) // self.batch_size,
+            # validation_steps=3,
+            validation_steps = len(valid_df) // self.batch_size,
             use_multiprocessing=True,
             workers=4,
             #callbacks=[pred_history, scheduler, checkpointer]
@@ -375,7 +383,7 @@ if __name__ == "__main__":
         input_dims=INPUT_DIMS
         batch_size=BATCH_SIZE
         model = MyDeepModel(engine=InceptionResNetV2, input_dims=input_dims, batch_size=batch_size, learning_rate=1e-3,
-                            num_epochs=1, decay_rate=0.8, decay_steps=1, weights="imagenet", verbose=1)
+                            num_epochs=20, decay_rate=0.8, decay_steps=1, weights="imagenet", verbose=1)
 
         # obtain test + validation predictions (history.test_predictions, history.valid_predictions)
         #history = model.fit_and_predict(df.iloc[train_idx], df.iloc[valid_idx], test_df)
