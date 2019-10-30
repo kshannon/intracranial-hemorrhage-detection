@@ -362,7 +362,6 @@ if __name__ == "__main__":
         #history = model.fit_and_predict(df.iloc[train_idx], df.iloc[valid_idx], test_df)
         model.fit_and_predict(df.iloc[train_idx], df.iloc[valid_idx], test_df)
 
-    
     if PREDICTION:
         def read_testset(filename=TEST_CSV):
             df = pd.read_csv(filename)
@@ -375,9 +374,6 @@ if __name__ == "__main__":
 
         # Load resources for prediction
         test_df = read_testset()
-        print(test_df.head())
-        print(test_df.shape)
-        sys.exit()
         model = keras.models.load_model(MODEL_FILENAME, compile=False)
 
         input_dims=(512,512, 3)
