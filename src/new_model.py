@@ -330,6 +330,11 @@ class MyDeepModel:
         # callbacks
         #pred_history = PredictionCheckpoint(test_df, valid_df, input_size=self.input_dims)
         checkpointer = keras.callbacks.ModelCheckpoint(filepath=MODEL_FILENAME, verbose=1, save_best_only=True)
+        csv_logger = keras.callbacks.CSVLogger('../logs/' + sys.argv[1] + '.csv')
+        # TensorBoard    
+        tb_logs = keras.callbacks.TensorBoard(log_dir=TENSORBOARD_DIR,
+                                            update_freq='batch',
+                                            profile_batch=0)
         #scheduler = keras.callbacks.LearningRateScheduler(lambda epoch: self.learning_rate * pow(self.decay_rate, floor(epoch / self.decay_steps)))
 
         self.model.fit_generator(
@@ -356,7 +361,7 @@ class MyDeepModel:
             use_multiprocessing=True,
             workers=4,
             #callbacks=[pred_history, scheduler, checkpointer]
-            callbacks=[checkpointer]
+            callbacks=[checkpointer, tb_logs, csv_logger]
         )
 
         #return pred_history
