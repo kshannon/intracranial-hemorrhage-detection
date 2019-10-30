@@ -32,7 +32,8 @@ TRAIN_DATA = data_flow.TRAIN_DATA_PATH
 # VALIDATE_CSV = parse_config.VALIDATE_CSV
 WHOLE_TRAIN_CSV = "../../data/stage_1_train.csv"
 TEST_DATA = data_flow.TEST_DATA_PATH
-TEST_CSV = "../submissions/phase1_test_filenames.csv"
+# TEST_CSV = "../submissions/phase1_test_filenames.csv"
+TEST_CSV = "../submissions/stage_1_sample_submission.csv"
 
 # Load model
 MODEL_PATH = '../models/'
