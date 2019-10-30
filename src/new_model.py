@@ -189,6 +189,32 @@ def window_testing(img, window):
 
     return bsb_img
 
+def read_testset(filename=TEST_CSV):
+    df = pd.read_csv(filename)
+    df["Image"] = df["ID"].str.slice(stop=12)
+    df["Diagnosis"] = df["ID"].str.slice(start=13)
+    df = df.loc[:, ["Label", "Diagnosis", "Image"]]
+    df = df.set_index(['Image', 'Diagnosis']).unstack(level=-1)
+
+    return df
+
+def read_trainset(filename=WHOLE_TRAIN_CSV):
+    df = pd.read_csv(filename)
+    df["Image"] = df["ID"].str.slice(stop=12)
+    df["Diagnosis"] = df["ID"].str.slice(start=13)
+    duplicates_to_remove = [
+        1598538, 1598539, 1598540, 1598541, 1598542, 1598543,
+        312468,  312469,  312470,  312471,  312472,  312473,
+        2708700, 2708701, 2708702, 2708703, 2708704, 2708705,
+        3032994, 3032995, 3032996, 3032997, 3032998, 3032999
+    ]
+    df = df.drop(index=duplicates_to_remove)
+    df = df.reset_index(drop=True)
+    df = df.loc[:, ["Label", "Diagnosis", "Image"]]
+    df = df.set_index(['Image', 'Diagnosis']).unstack(level=-1)
+
+    return df
+
 
 #### Data Generator Definition and Deep Learning Model Engine Definition ####
 class DataGenerator(keras.utils.Sequence):
@@ -329,24 +355,8 @@ class MyDeepModel:
 if __name__ == "__main__":
 
     if TRAINING:
-        def read_trainset(filename=WHOLE_TRAIN_CSV):
-            df = pd.read_csv(filename)
-            df["Image"] = df["ID"].str.slice(stop=12)
-            df["Diagnosis"] = df["ID"].str.slice(start=13)
-            duplicates_to_remove = [
-                1598538, 1598539, 1598540, 1598541, 1598542, 1598543,
-                312468,  312469,  312470,  312471,  312472,  312473,
-                2708700, 2708701, 2708702, 2708703, 2708704, 2708705,
-                3032994, 3032995, 3032996, 3032997, 3032998, 3032999
-            ]
-            df = df.drop(index=duplicates_to_remove)
-            df = df.reset_index(drop=True)
-            df = df.loc[:, ["Label", "Diagnosis", "Image"]]
-            df = df.set_index(['Image', 'Diagnosis']).unstack(level=-1)
-
-            return df
-
         df = read_trainset()
+        test_df = read_testset()
         ss = ShuffleSplit(n_splits=10, test_size=0.1, random_state=42).split(df.index)
         train_idx, valid_idx = next(ss)
 
@@ -363,15 +373,6 @@ if __name__ == "__main__":
         model.fit_and_predict(df.iloc[train_idx], df.iloc[valid_idx], test_df)
 
     if PREDICTION:
-        def read_testset(filename=TEST_CSV):
-            df = pd.read_csv(filename)
-            df["Image"] = df["ID"].str.slice(stop=12)
-            df["Diagnosis"] = df["ID"].str.slice(start=13)
-            df = df.loc[:, ["Label", "Diagnosis", "Image"]]
-            df = df.set_index(['Image', 'Diagnosis']).unstack(level=-1)
-
-            return df
-
         # Load resources for prediction
         test_df = read_testset()
         model = keras.models.load_model(MODEL_FILENAME, compile=False)
