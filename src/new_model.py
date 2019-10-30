@@ -49,6 +49,7 @@ WHOLE_TRAIN_CSV = "../../data/stage_1_train.csv"
 TEST_DATA = data_flow.TEST_DATA_PATH
 # TEST_CSV = "../submissions/phase1_test_filenames.csv"
 TEST_CSV = "../submissions/stage_1_sample_submission.csv"
+TENSORBOARD_DIR = os.path.join('tensorboards/', sys.argv[1])
 
 # Load model
 MODEL_PATH = '../models/'
