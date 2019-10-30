@@ -193,7 +193,7 @@ def window_testing(img, window):
 class DataGenerator(keras.utils.Sequence):
 
     def __init__(self, list_IDs, labels=None, batch_size=1, img_size=(512, 512, 1),
-                 img_dir=train_images_dir, *args, **kwargs):
+                 img_dir=TRAIN_DATA, *args, **kwargs):
 
         self.list_IDs = list_IDs
         self.labels = labels
@@ -296,7 +296,7 @@ class MyDeepModel:
                 train_df,
                 self.batch_size,
                 self.input_dims,
-                train_images_dir
+                TRAIN_DATA
             ),
             epochs=self.num_epochs,
             verbose=self.verbose,
@@ -305,7 +305,7 @@ class MyDeepModel:
                 valid_df,
                 self.batch_size,
                 self.input_dims,
-                train_images_dir
+                TRAIN_DATA
             ),
             steps_per_epoch=3,
             validation_steps=3,
@@ -379,8 +379,9 @@ if __name__ == "__main__":
         sys.exit()
         model = keras.models.load_model(MODEL_FILENAME, compile=False)
 
-
-        test_df.iloc[:,:] = model.predict_generator(DataGenerator(test_df.index, None, batch_size, input_dims, test_images_dir), verbose=1)
+        input_dims=(512,512, 3)
+        batch_size=6
+        test_df.iloc[:,:] = model.predict_generator(DataGenerator(test_df.index, None, batch_size, input_dims, TEST_DATA), verbose=1)
         #test_df.iloc[:, :] = np.average(history.test_predictions, axis=0, weights=[0, 1, 2, 4, 6]) # let's do a weighted average for epochs (>1)
 
         test_df = test_df.stack().reset_index()
