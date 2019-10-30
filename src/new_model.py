@@ -230,7 +230,7 @@ class DataGenerator(keras.utils.Sequence):
             self.indices = np.arange(len(self.list_IDs))
 
     def __data_generation(self, list_IDs_temp):
-        X = np.empty((self.batch_size, self.img_size[0], self.img_size[1]))
+        X = np.empty((self.batch_size, self.img_size[0], self.img_size[1], self.img_size[2]))
 
         if self.labels is not None: # training phase
             Y = np.empty((self.batch_size, 6), dtype=np.float32)
