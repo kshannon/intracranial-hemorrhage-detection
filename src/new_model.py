@@ -21,10 +21,19 @@ from tensorflow.keras.applications import InceptionResNetV2
 from tensorflow.keras.applications.inception_resnet_v2 import preprocess_input
 from sklearn.model_selection import ShuffleSplit
 import data_flow
+import parse_config
 
-# Script Flags
-TRAINING = False
-PREDICTION = True
+if parse_config.USING_RTX_20XX:
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    tf.keras.backend.set_session(tf.Session(config=config))
+
+# Script Flags & Params
+TRAINING = TRUE
+PREDICTION = FALSE
+
+INPUT_DIMS = (512,512,3)
+BATCH_SIZE = 6
 
 # Hook up data
 TRAIN_DATA = data_flow.TRAIN_DATA_PATH
@@ -363,8 +372,8 @@ if __name__ == "__main__":
         # obtain model
         # model = MyDeepModel(engine=InceptionV3, input_dims=(512,512, 3), batch_size=8, learning_rate=5e-4,
         #                     num_epochs=10, decay_rate=0.8, decay_steps=1, weights="imagenet", verbose=1)
-        input_dims=(512,512, 3)
-        batch_size=8
+        input_dims=INPUT_DIMS
+        batch_size=BATCH_SIZE
         model = MyDeepModel(engine=InceptionResNetV2, input_dims=input_dims, batch_size=batch_size, learning_rate=1e-3,
                             num_epochs=1, decay_rate=0.8, decay_steps=1, weights="imagenet", verbose=1)
 
@@ -377,8 +386,8 @@ if __name__ == "__main__":
         test_df = read_testset()
         model = keras.models.load_model(MODEL_FILENAME, compile=False)
 
-        input_dims=(512,512, 3)
-        batch_size=6
+        input_dims=INPUT_DIMS
+        batch_size=BATCH_SIZE
         test_df.iloc[:,:] = model.predict_generator(DataGenerator(test_df.index, None, batch_size, input_dims, TEST_DATA), verbose=1)
         #test_df.iloc[:, :] = np.average(history.test_predictions, axis=0, weights=[0, 1, 2, 4, 6]) # let's do a weighted average for epochs (>1)
 
