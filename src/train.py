@@ -2,9 +2,9 @@ test_images_dir = '../../data/stage_1_test_images/'
 train_images_dir = '../../data/stage_1_train_images/'
 trainset_filename = "../../data/stage_1_train.csv"
 testset_filename = "../../stage_1_sample_submission.csv"
-num_epochs = 10
-img_shape = (128,128,3) #(512,512,3)
-batch_size=32
+num_epochs = 1
+img_shape = (96,96,3) #(512,512,3)
+batch_size=64
 TRAINING = True # If False, then just load model and predict
 
 from model import MyDeepModel, create_submission
@@ -23,7 +23,7 @@ from keras_applications.inception_resnet_v2 import InceptionResNetV2, preprocess
 
 # obtain model
 model = MyDeepModel(engine=InceptionV3, input_dims=img_shape, batch_size=batch_size, learning_rate=1e-3,
-                    num_epochs=10, decay_rate=0.8, decay_steps=1, weights="imagenet", verbose=1, train_image_dir=train_images_dir)
+                    num_epochs=num_epochs, decay_rate=0.8, decay_steps=1, weights="imagenet", verbose=1, train_image_dir=train_images_dir)
 
 # model = MyDeepModel(engine=InceptionResNetV2, input_dims=img_shape, batch_size=batch_size, learning_rate=1e-3,
 #                     num_epochs=num_epochs, decay_rate=0.8, decay_steps=1, weights="imagenet", verbose=1, train_image_dir=train_images_dir)
