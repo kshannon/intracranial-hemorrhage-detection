@@ -15,7 +15,6 @@ import keras as K
 from sklearn.model_selection import ShuffleSplit
 
 
-
 # from K_applications.resnet import ResNet50
 from keras_applications.inception_v3 import InceptionV3
 from keras_applications.inception_resnet_v2 import InceptionResNetV2, preprocess_input
@@ -38,7 +37,6 @@ if (TRAINING == True):
 
     # Train the model
     model.fit_model(df.iloc[train_idx], df.iloc[valid_idx])
-
 
 
 test_df = read_testset(testset_filename)

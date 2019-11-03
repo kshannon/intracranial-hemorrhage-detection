@@ -114,7 +114,7 @@ class MyDeepModel:
 
         self.model = K.models.Model(inputs=engine.input, outputs=out)
 
-        self.model.compile(loss="binary_crossentropy", optimizer=K.optimizers.Adam(), metrics=["categorical_accuracy", "accuracy",weighted_loss])
+        self.model.compile(loss=weighted_log_loss, optimizer=K.optimizers.Adam(), metrics=["categorical_accuracy", "accuracy",weighted_loss])
 
 
     def fit_model(self, train_df, valid_df):
