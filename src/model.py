@@ -6,14 +6,9 @@ from datetime import datetime
 
 from math import ceil, floor, log
 
-
 import tensorflow as tf
 import keras as K
 
-
-# from K_applications.resnet import ResNet50
-from keras_applications.inception_v3 import InceptionV3
-from keras_applications.inception_resnet_v2 import InceptionResNetV2, preprocess_input
 
 from data_loader import DataGenerator
 

@@ -16,8 +16,8 @@ from sklearn.model_selection import ShuffleSplit
 
 
 # from K_applications.resnet import ResNet50
-from keras_applications.inception_v3 import InceptionV3
-from keras_applications.inception_resnet_v2 import InceptionResNetV2, preprocess_input
+from keras.applications.inception_v3 import InceptionV3
+from keras.applications.inception_resnet_v2 import InceptionResNetV2, preprocess_input
 
 
 # obtain model
