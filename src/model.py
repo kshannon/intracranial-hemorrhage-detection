@@ -136,8 +136,6 @@ class MyDeepModel:
                 self.input_dims,
                 self.train_images_dir
             ),
-            validation_steps=16,
-            steps_per_epoch=32,
             use_multiprocessing=True,
             workers=4,
             callbacks=[scheduler, checkpointer]
