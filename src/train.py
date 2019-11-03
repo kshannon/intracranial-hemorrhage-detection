@@ -39,14 +39,9 @@ if (TRAINING == True):
     # Train the model
     model.fit_model(df.iloc[train_idx], df.iloc[valid_idx])
 
-    test_df = read_testset(testset_filename)
-    test_generator = DataGenerator(test_df.index, None, 1, img_shape, test_images_dir)
-    best_model = K.models.load_model(model.model_filename)
-    prediction_df = create_submission(best_model, test_generator, test_df)
 
-else:  # Prediction only
 
-    test_df = read_testset(testset_filename)
-    test_generator = DataGenerator(test_df.index, None, 1, img_shape, test_images_dir)
-    best_model = K.models.load_model(model.model_filename)
-    prediction_df = create_submission(best_model, test_generator, test_df)
+test_df = read_testset(testset_filename)
+test_generator = DataGenerator(test_df.index, None, 1, img_shape, test_images_dir)
+best_model = K.models.load_model(model.model_filename)
+prediction_df = create_submission(best_model, test_generator, test_df)
