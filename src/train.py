@@ -2,9 +2,9 @@ test_images_dir = '../../data/stage_1_test_images/'
 train_images_dir = '../../data/stage_1_train_images/'
 trainset_filename = "../../data/stage_1_train.csv"
 testset_filename = "../../stage_1_sample_submission.csv"
-num_epochs = 1
-img_shape = (96,96,3) #(512,512,3)
-batch_size=64
+num_epochs = 10
+img_shape = (512,512,3)
+batch_size=8
 TRAINING = True # If False, then just load model and predict
 
 from model import MyDeepModel, create_submission
@@ -41,5 +41,5 @@ if (TRAINING == True):
 
 test_df = read_testset(testset_filename)
 test_generator = DataGenerator(test_df.index, None, 1, img_shape, test_images_dir)
-best_model = K.models.load_model(model.model_filename)
+best_model = K.models.load_model(model.model_filename, compile=False)
 prediction_df = create_submission(best_model, test_generator, test_df)

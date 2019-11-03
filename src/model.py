@@ -91,7 +91,7 @@ class MyDeepModel:
         self.decay_steps = decay_steps
         self.weights = weights
         self.verbose = verbose
-        self.model_filename = '%s.hdf5' % engine.__name__,
+        self.model_filename = '{}_{}.hdf5'.format(engine.__name__, datetime.now().strftime('%Y_%m_%d_%H_%M_%S'))
         self.train_images_dir=train_image_dir
         self._build()
 
@@ -140,6 +140,8 @@ class MyDeepModel:
                 self.input_dims,
                 self.train_images_dir
             ),
+            validation_steps=16,
+            steps_per_epoch=32,
             use_multiprocessing=True,
             workers=4,
             callbacks=[scheduler, checkpointer]
@@ -154,6 +156,8 @@ class MyDeepModel:
 
 def create_submission(model, data, test_df):
 
+    print("Creating predictions on test dataset")
+
     pred = model.predict_generator(data, verbose=1)
 
     out_df = pd.DataFrame(pred, index=test_df.index, columns=test_df.columns)
@@ -164,6 +168,7 @@ def create_submission(model, data, test_df):
 
     test_df = test_df.drop(["Image", "Diagnosis"], axis=1)
 
+    print("Saving submissions to submission.csv")
     test_df.to_csv('submission.csv', index=False)
 
     return test_df
