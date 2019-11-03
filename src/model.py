@@ -98,19 +98,15 @@ class MyDeepModel:
                              backend = K.backend, layers = K.layers,
                              models = K.models, utils = K.utils)
 
-        # x = K.layers.GlobalAveragePooling2D(name='avg_pool')(engine.output)
-        # x = K.layers.Dropout(0.5)(x)
-        # x = K.layers.Dense(K.backend.int_shape(x)[1], activation="relu", name="dense_hidden_1")(x)
-        x = K.layers.Flatten()(engine.output)
-        x = K.layers.Dense(128, activation="relu", name="dense_hidden_1")(x)
-        x = K.layers.Dropout(0.5)(x)
-        x = K.layers.Dense(64, activation="relu", name="dense_hidden_2")(x)
-        x = K.layers.Dropout(0.5)(x)
+        x = K.layers.GlobalAveragePooling2D(name='avg_pool')(engine.output)
+#         x = keras.layers.Dropout(0.2)(x)
+#         x = keras.layers.Dense(keras.backend.int_shape(x)[1], activation="relu", name="dense_hidden_1")(x)
+#         x = keras.layers.Dropout(0.1)(x)
         out = K.layers.Dense(6, activation="sigmoid", name='dense_output')(x)
 
         self.model = K.models.Model(inputs=engine.input, outputs=out)
 
-        self.model.compile(loss=weighted_log_loss, optimizer=K.optimizers.Adam(), metrics=["categorical_accuracy", "accuracy",weighted_loss])
+        self.model.compile(loss="binary_crossentropy", optimizer=K.optimizers.Adam(), metrics=["categorical_accuracy", "accuracy", weighted_loss])
 
 
     def fit_model(self, train_df, valid_df):
