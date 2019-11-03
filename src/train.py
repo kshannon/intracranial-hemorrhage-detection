@@ -1,133 +1,52 @@
-#################    --INSTRUCTIONS TO RUN--   #################
+test_images_dir = '../../data/stage_1_test_images/'
+train_images_dir = '../../data/stage_1_train_images/'
+trainset_filename = "../../data/stage_1_train.csv"
+testset_filename = "../../stage_1_sample_submission.csv"
+num_epochs = 10
+img_shape = (256,256,3) #(512,512,3)
+batch_size=32
+TRAINING = True # If False, then just load model and predict
 
-# start training via:
-# python train.py {model-name}-{dims}-{loss}-{subtype}-{monthDay-version}
-# e.g.
-# python train.py resnet50-dim224x224-bce-intraparenchymal-oct18v1
+from model import MyDeepModel, create_submission
+from data_loader import read_testset, read_trainset, DataGenerator
 
-#################    --INSTRUCTIONS TO RUN--   #################
+import keras as K
 
-
-
-import sys
-import os
-import numpy as np
-import datetime
-import tensorflow as tf
-from tensorflow import keras as K
-from tensorflow import ConfigProto
-from tensorflow import InteractiveSession
-# from tensorflow.keras import metrics.CategoricalCrossentropy
-from tensorflow.keras.losses import BinaryCrossentropy
-from tensorflow.keras.applications import MobileNetV2
-
-import data_flow
-import parse_config
-from data_loader import DataGenerator
-import custom_loss as loss
-import custom_callbacks as callbks
-
-
-if parse_config.USING_RTX_20XX:
-    config = tf.ConfigProto()
-    config.gpu_options.allow_growth = True
-    tf.keras.backend.set_session(tf.Session(config=config))
-
-
-MODEL_NAME = sys.argv[1]
-DATA_DIRECTORY = data_flow.TRAIN_DATA_PATH
-TRAIN_CSV = parse_config.TRAIN_CSV
-VALIDATE_CSV = parse_config.VALIDATE_CSV
-TENSORBOARD_DIR = os.path.join('tensorboards/', sys.argv[1])
-BATCH_SIZE = 32
-EPOCHS = 20 
-DIMS = (224,224)
-
-params = dict(dims=DIMS,
-          subtype="any",
-          sigmoid = True,)
-
-training_data_gen = DataGenerator(csv_filename=TRAIN_CSV,
-                                    data_path=DATA_DIRECTORY,
-                                    batch_size=BATCH_SIZE,
-                                    augment=True,
-                                    balance_data = True,
-                                    **params)
-
-validation_data_gen = DataGenerator(csv_filename=VALIDATE_CSV,
-                                    data_path=DATA_DIRECTORY,
-                                    batch_size=BATCH_SIZE,
-                                    augment=False,
-                                    balance_data = True,
-                                    **params)
-
-
-#################################  CALLBACKS  ################################
-
-# Saved models
-checkpoint = K.callbacks.ModelCheckpoint(os.path.join('../models/', sys.argv[1] + '.pb'), verbose=1, save_best_only=True)
-                                                       
-# TensorBoard    
-tb_logs = K.callbacks.TensorBoard(log_dir=TENSORBOARD_DIR,
-                                    update_freq='batch',
-                                    profile_batch=0)
-
-# Interrupt training if `val_loss` stops improving for over 2 epochs                                    
-early_stop = K.callbacks.EarlyStopping(patience=2, monitor='val_loss')
-
-# Learning Rate
-learning_rate = 5e-4
-decay_rate = 0.8
-decay_steps = 1
-# lr_sched = callbks.step_decay_schedule(initial_lr=1e-4, decay_factor=0.75, step_size=2)
-lr_sched = K.callbacks.LearningRateScheduler(lambda epoch: learning_rate * pow(decay_rate, np.floor(epoch / decay_steps)))
-
-#CSV logging
-csv_logger = K.callbacks.CSVLogger('../logs/' + sys.argv[1] + '.csv')
+from sklearn.model_selection import ShuffleSplit
 
 
 
-################################################################################# 
-######################  YOUR MODEL DEFINITION GOES IN HERE  #####################
-#################################################################################
+# from K_applications.resnet import ResNet50
+from keras_applications.inception_v3 import InceptionV3
+from keras_applications.inception_resnet_v2 import InceptionResNetV2, preprocess_input
 
 
-num_chan_in = 3
-height = DIMS[0]
-width = DIMS[1]
-num_classes = 1
-bn_momentum = 0.99
-kernel_initializer="he_uniform" #TODO: can we use this as a passed param to predefinned Keras models?
+# obtain model
+model = MyDeepModel(engine=InceptionV3, input_dims=img_shape, batch_size=batch_size, learning_rate=1e-3,
+                    num_epochs=10, decay_rate=0.8, decay_steps=1, weights="imagenet", verbose=1, train_image_dir=train_images_dir)
 
-# inputs = K.layers.Input([height, width, num_chan_in], name="DICOM")
-# image_input = Input(shape=(224, 224, 3))
-# model = ResNet50(input_tensor=image_input, include_top=True,weights='imagenet')
-# kernel_initializer="he_uniform" can we add this to pretrained mod
+# model = MyDeepModel(engine=InceptionResNetV2, input_dims=img_shape, batch_size=batch_size, learning_rate=1e-3,
+#                     num_epochs=num_epochs, decay_rate=0.8, decay_steps=1, weights="imagenet", verbose=1, train_image_dir=train_images_dir)
 
-MobileNetV2_model = MobileNetV2(input_shape=[height, width, num_chan_in], 
-                        include_top=False,
-                        utils = K.utils,
-                        models = K.models,
-                        layers = K.layers,
-                        backend = K.backend,
-                        weights = 'imagenet') # None
-                        # pooling='avg' same thing as the layer below...
 
-global_avg_pool = K.layers.GlobalAveragePooling2D(name='avg_pool')(MobileNetV2_model.output)
-hemorrhage_output = K.layers.Dense(num_classes, activation="sigmoid", name='dense_output')(global_avg_pool)
+if (TRAINING == True):
 
-model = K.models.Model(inputs=MobileNetV2_model.input, outputs=hemorrhage_output)
+    df = read_trainset(trainset_filename)
+    ss = ShuffleSplit(n_splits=10, test_size=0.1, random_state=42).split(df.index)
+    # lets go for the first fold only
+    train_idx, valid_idx = next(ss)
 
-model.compile(loss=BinaryCrossentropy(),
-                optimizer=K.optimizers.Adam(lr = 5e-4, beta_1 = .9, beta_2 = .999, decay = 0.8),
-                metrics=[K.metrics.AUC(), K.metrics.BinaryAccuracy()])#loss.weighted_loss
+    # Train the model
+    model.fit_model(df.iloc[train_idx], df.iloc[valid_idx])
 
-################################################################################# 
-#######################  YOUR MODEL DEFINITION ENDs HERE  #######################
-#################################################################################
+    test_df = read_testset(testset_filename)
+    test_generator = DataGenerator(test_df.index, None, 1, img_shape, test_images_dir)
+    best_model = K.models.load_model(model.model_filename)
+    prediction_df = create_submission(best_model, test_generator, test_df)
 
-# Here we go...
-model.fit_generator(training_data_gen, 
-                    validation_data=validation_data_gen, 
-                    callbacks=[lr_sched, checkpoint, tb_logs, early_stop, csv_logger],
-                    epochs=EPOCHS)
+else:  # Prediction only
+
+    test_df = read_testset(testset_filename)
+    test_generator = DataGenerator(test_df.index, None, 1, img_shape, test_images_dir)
+    best_model = K.models.load_model(model.model_filename)
+    prediction_df = create_submission(best_model, test_generator, test_df)
