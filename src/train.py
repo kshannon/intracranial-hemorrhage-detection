@@ -14,8 +14,6 @@ import keras as K
 
 from sklearn.model_selection import ShuffleSplit
 
-import pandas as pd
-
 
 # from K_applications.resnet import ResNet50
 from keras.applications.inception_v3 import InceptionV3
