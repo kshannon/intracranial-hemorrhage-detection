@@ -72,11 +72,19 @@ def weighted_loss(y_true, y_pred):
 
     return K.backend.mean(loss_samples)
 
+class PredictionCheckpoint(K.callbacks.Callback):
+
+    def on_epoch_end(self, epoch, logs={}):
+        """
+        Save each epoch file in case of crash
+        """
+        print("Saving checkpoint")
+        self.model.save("epoch{}.hdf5".format(epoch))
 
 class MyDeepModel:
 
     def __init__(self, engine, input_dims, batch_size=5, num_epochs=4, learning_rate=1e-3,
-                 decay_rate=1.0, decay_steps=1, weights="imagenet", verbose=1, train_image_dir=""):
+                 decay_rate=1.0, decay_steps=1, weights="imagenet", verbose=1, train_image_dir="", model_filename=""):
 
         self.engine = engine
         self.input_dims = input_dims
@@ -87,7 +95,7 @@ class MyDeepModel:
         self.decay_steps = decay_steps
         self.weights = weights
         self.verbose = verbose
-        self.model_filename = '{}_{}.hdf5'.format(engine.__name__, datetime.now().strftime('%Y_%m_%d_%H_%M_%S'))
+        self.model_filename = model_filename
         self.train_images_dir=train_image_dir
         self._build()
 
@@ -108,6 +116,9 @@ class MyDeepModel:
 
         self.model.compile(loss="binary_crossentropy", optimizer=K.optimizers.Adam(), metrics=["categorical_accuracy", "accuracy", weighted_loss])
 
+    def get_model_filename(self):
+
+        return self.model_filename
 
     def fit_model(self, train_df, valid_df):
 
@@ -134,11 +145,11 @@ class MyDeepModel:
             ),
             use_multiprocessing=True,
             workers=4,
-            callbacks=[scheduler, checkpointer]
+            callbacks=[scheduler, checkpointer, PredictionCheckpoint()]
         )
 
     def save(self, path):
-        self.model.save_weights(path)
+        self.model.save(path)
 
     def load(self, path):
         self.model.load_weights(path)

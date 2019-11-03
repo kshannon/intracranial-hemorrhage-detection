@@ -1,12 +1,4 @@
-test_images_dir = '../../data/stage_1_test_images/'
-train_images_dir = '../../data/stage_1_train_images/'
-trainset_filename = "../../data/stage_1_train.csv"
-testset_filename = "../../stage_1_sample_submission.csv"
-num_epochs = 10
-img_shape = (512,512,3)
-batch_size=8
-TRAINING = True # If False, then just load model and predict
-
+from datetime import datetime
 from model import MyDeepModel, create_submission
 from data_loader import read_testset, read_trainset, DataGenerator
 
@@ -21,15 +13,30 @@ from keras.applications.inception_resnet_v2 import InceptionResNetV2, preprocess
 from keras.applications.densenet import DenseNet121
 from keras.applications.mobilenet_v2 import MobileNetV2
 
+test_images_dir = '../../data/stage_1_test_images/'
+train_images_dir = '../../data/stage_1_train_images/'
+trainset_filename = "../../data/stage_1_train.csv"
+testset_filename = "../../stage_1_sample_submission.csv"
+num_epochs = 10
+img_shape = (256,256,3)
+batch_size=32
+TRAINING = True # If False, then just load model and predict
+
+engine=InceptionV3
+model_filename="InceptionV3_{}.hdf5".format(datetime.now().strftime('%Y_%m_%d_%H_%M_%S'))
+#model_filename="wrapper_2019_11_02_22_06_45.hdf5"
+
 # obtain model
-model = MyDeepModel(engine=InceptionV3, input_dims=img_shape, batch_size=batch_size, learning_rate=5e-4,
-                    num_epochs=num_epochs, decay_rate=0.8, decay_steps=1, weights="imagenet", verbose=1, train_image_dir=train_images_dir)
+model = MyDeepModel(engine=engine, input_dims=img_shape, batch_size=batch_size,
+                    learning_rate=5e-4,
+                    num_epochs=num_epochs, decay_rate=0.8,
+                    decay_steps=1,
+                    weights="imagenet", verbose=1,
+                    train_image_dir=train_images_dir,
+                    model_filename=model_filename)
 
-# model = MyDeepModel(engine=MobileNetV2, input_dims=img_shape, batch_size=batch_size, learning_rate=1e-3,
-#                     num_epochs=num_epochs, decay_rate=0.8, decay_steps=1, weights="imagenet", verbose=1, train_image_dir=train_images_dir)
 
-# model = MyDeepModel(engine=InceptionResNetV2, input_dims=img_shape, batch_size=batch_size, learning_rate=1e-3,
-#                     num_epochs=num_epochs, decay_rate=0.8, decay_steps=1, weights="imagenet", verbose=1, train_image_dir=train_images_dir)
+#model.load(model_filename)  # Use previous checkpoint
 
 
 if (TRAINING == True):
