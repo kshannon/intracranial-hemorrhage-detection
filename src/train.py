@@ -3,7 +3,7 @@ train_images_dir = '../../data/stage_1_train_images/'
 trainset_filename = "../../data/stage_1_train.csv"
 testset_filename = "../../stage_1_sample_submission.csv"
 num_epochs = 10
-img_shape = (256,256,3) #(512,512,3)
+img_shape = (128,128,3) #(512,512,3)
 batch_size=32
 TRAINING = True # If False, then just load model and predict
 

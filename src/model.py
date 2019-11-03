@@ -19,7 +19,6 @@ from data_loader import DataGenerator
 
 
 
-
 def weighted_log_loss(y_true, y_pred):
     """
     Can be used as the loss function in model.compile()
@@ -71,28 +70,11 @@ def weighted_loss(y_true, y_pred):
     y_pred = K.backend.clip(y_pred, eps, 1.0-eps)
 
     loss = -(        y_true  * K.backend.log(      y_pred)
-            + (1.0 - y_true) * K.backend/log(1.0 - y_pred))
+            + (1.0 - y_true) * K.backend.log(1.0 - y_pred))
 
     loss_samples = _normalized_weighted_average(loss, class_weights)
 
     return K.backend.mean(loss_samples)
-
-
-def weighted_log_loss_metric(trues, preds):
-    """
-    Will be used to calculate the log loss
-    of the validation set in PredictionCheckpoint()
-    ------------------------------------------
-    """
-    class_weights = [2., 1., 1., 1., 1., 1.]
-
-    epsilon = 1e-7
-
-    preds = np.clip(preds, epsilon, 1-epsilon)
-    loss = trues * np.log(preds) + (1 - trues) * np.log(1 - preds)
-    loss_samples = np.average(loss, axis=1, weights=class_weights)
-
-    return - loss_samples.mean()
 
 
 class MyDeepModel:
@@ -132,7 +114,7 @@ class MyDeepModel:
 
         self.model = K.models.Model(inputs=engine.input, outputs=out)
 
-        self.model.compile(loss="binary_crossentropy", optimizer=K.optimizers.Adam(), metrics=["categorical_accuracy", "accuracy"])
+        self.model.compile(loss="binary_crossentropy", optimizer=K.optimizers.Adam(), metrics=["categorical_accuracy", "accuracy",weighted_loss])
 
 
     def fit_model(self, train_df, valid_df):
