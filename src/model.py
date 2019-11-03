@@ -13,7 +13,6 @@ import keras as K
 from data_loader import DataGenerator
 
 
-
 def weighted_log_loss(y_true, y_pred):
     """
     Can be used as the loss function in model.compile()

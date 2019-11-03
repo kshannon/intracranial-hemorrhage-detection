@@ -18,10 +18,14 @@ from sklearn.model_selection import ShuffleSplit
 # from K_applications.resnet import ResNet50
 from keras.applications.inception_v3 import InceptionV3
 from keras.applications.inception_resnet_v2 import InceptionResNetV2, preprocess_input
+from keras.applications.densenet import DenseNet121
 
 
 # obtain model
-model = MyDeepModel(engine=InceptionV3, input_dims=img_shape, batch_size=batch_size, learning_rate=1e-3,
+# model = MyDeepModel(engine=InceptionV3, input_dims=img_shape, batch_size=batch_size, learning_rate=1e-3,
+#                     num_epochs=num_epochs, decay_rate=0.8, decay_steps=1, weights="imagenet", verbose=1, train_image_dir=train_images_dir)
+
+model = MyDeepModel(engine=DenseNet121, input_dims=img_shape, batch_size=batch_size, learning_rate=1e-3,
                     num_epochs=num_epochs, decay_rate=0.8, decay_steps=1, weights="imagenet", verbose=1, train_image_dir=train_images_dir)
 
 # model = MyDeepModel(engine=InceptionResNetV2, input_dims=img_shape, batch_size=batch_size, learning_rate=1e-3,
