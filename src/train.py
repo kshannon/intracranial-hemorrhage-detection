@@ -19,13 +19,13 @@ from sklearn.model_selection import ShuffleSplit
 from keras.applications.inception_v3 import InceptionV3
 from keras.applications.inception_resnet_v2 import InceptionResNetV2, preprocess_input
 from keras.applications.densenet import DenseNet121
-
+from keras.applications.mobilenet_v2 import MobileNetV2
 
 # obtain model
 # model = MyDeepModel(engine=InceptionV3, input_dims=img_shape, batch_size=batch_size, learning_rate=1e-3,
 #                     num_epochs=num_epochs, decay_rate=0.8, decay_steps=1, weights="imagenet", verbose=1, train_image_dir=train_images_dir)
 
-model = MyDeepModel(engine=DenseNet121, input_dims=img_shape, batch_size=batch_size, learning_rate=1e-3,
+model = MyDeepModel(engine=MobileNetV2, input_dims=img_shape, batch_size=batch_size, learning_rate=1e-3,
                     num_epochs=num_epochs, decay_rate=0.8, decay_steps=1, weights="imagenet", verbose=1, train_image_dir=train_images_dir)
 
 # model = MyDeepModel(engine=InceptionResNetV2, input_dims=img_shape, batch_size=batch_size, learning_rate=1e-3,
@@ -35,7 +35,7 @@ model = MyDeepModel(engine=DenseNet121, input_dims=img_shape, batch_size=batch_s
 if (TRAINING == True):
 
     df = read_trainset(trainset_filename)
-    ss = ShuffleSplit(n_splits=10, test_size=0.1, random_state=42).split(df.index)
+    ss = ShuffleSplit(n_splits=10, test_size=0.1, random_state=816).split(df.index)
     # lets go for the first fold only
     train_idx, valid_idx = next(ss)
 
@@ -46,4 +46,5 @@ if (TRAINING == True):
 test_df = read_testset(testset_filename)
 test_generator = DataGenerator(test_df.index, None, 1, img_shape, test_images_dir)
 best_model = K.models.load_model(model.model_filename, compile=False)
+
 prediction_df = create_submission(best_model, test_generator, test_df)
