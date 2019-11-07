@@ -7,7 +7,7 @@ from datetime import datetime
 from math import ceil, floor, log
 
 import tensorflow as tf
-import keras as K
+import tensorflow.keras as K
 
 
 from data_loader import DataGenerator
