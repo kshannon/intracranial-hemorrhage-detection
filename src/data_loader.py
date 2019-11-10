@@ -9,7 +9,7 @@ from math import ceil, floor, log
 import cv2
 
 import tensorflow as tf
-import keras as K
+import tensorflow.keras as K
 
 
 def correct_dcm(dcm):
