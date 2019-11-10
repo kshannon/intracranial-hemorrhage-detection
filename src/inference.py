@@ -20,7 +20,7 @@ parser.add_argument('--model_filename', type=str)
 args = parser.parse_args()
 MODEL_NAME = '../models/' + args.model_filename
 img_size = (256,256,3)
-batch_size=20
+batch_size=16 #must be evenly divisiable by number of images in data gen.
 
 # Define paths
 test_images_dir = '../../data/stage_2_test_images/'
@@ -53,7 +53,7 @@ def create_submission(model, data, test_df):
     test_df.insert(loc=0, column='ID', value=test_df['Image'].astype(str) + "_" + test_df['Diagnosis'])
     test_df = test_df.drop(["Image", "Diagnosis"], axis=1)
     print("Saving submissions to submission.csv")
-    test_df.to_csv('../submissions/stage2-final-submission.csv', index=False)
+    test_df.to_csv('../submissions/stage2-final-submission-v2.csv', index=False)
 
     return test_df
 
