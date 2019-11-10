@@ -18,9 +18,17 @@ Data is augmented via random flips (vertical and horizontal), rotations (+/- 10 
 Furthermore we also downsample class 0 data by randomly selecting images to match the number of class 1 training data. When training binary cross entropy for "any" class 1 subtype, we set all subtypes to class 1 and an equal amount of class 0 to 0 
 
 ## Model
-* Test Submission: First approach was the test the submission script and manually mark each subtype, including All, with a probability value of 0.15
-* Naive Baseline: Pass
-
+Based on InceptionV3
+```
+num_epochs = 8
+img_shape = (256,256,3)
+batch_size=24
+learning_rate=5e-4
+decay_rate=0.8
+decay_steps=1
+weights="imagenet"
+verbose=1
+```
 
 ## Evaluation
 Model evaluated using a weighted multi-label logarithmic loss (same as cross-entropy for all intents and purposes). Using the minmax rule to avoid undefinned predictions at {0,1}, offset by a small epsilon: max(min(p, 1−10^−15), 10^-15).
@@ -30,14 +38,32 @@ Model evaluated using a weighted multi-label logarithmic loss (same as cross-ent
 - Tony Reina
 - Kyle Shannon
 
-## Getting Started
+## Getting Started, Training, & Testing Instructions:
 Instructions for deploying our codebase and reproducing our results:
-1. Run the Docker script to create a GPU ready linux container. (We assume you will be using Nvidia GPUs on a Linux based system.
-2. Ensure that the conda environment was set up properly and matches the .yaml environment configuration. 
-3. Set your paths to the training and test data in the src/config.ini file. 
-4. You can recreate our exact train/validate/test splits using the ```create_label_file.py``` script, alternatively we have provided those csv files for convienance.
+1. Run the shell script ```create_config.ini```, also create the following directories if they do not exist: submissions/, models/, eda/, logs/, src/tensorboards, and src/model_defs 
+2. Set you config.ini script, use_docker must be true if you are training with our docker script, you must also set your docker paths to the data, in our case we mounted a drive to the docker container, our docker run command looks like this:
+```
+docker run \
+  --mount type=bind,source=/media/mount_point/intracranial-hemorrhage-detection-data,destination=/home/data \
+  --mount type=bind,source=/home/kyle/dev/kaggle/intracranial-hemorrhage-detection,destination=/home/intracranial-hemorrhage-detection \
+  --name baseline \
+  --gpus all \
+  --expose=8888 \
+  --rm \
+  -it rsna-kaggle
+```
+3. Run the Docker script to create a GPU ready linux container. (We assume you will be using Nvidia GPUs on a Linux based system. We also use tmux in the docker container during training.
+3. Ensure that the conda environment was set up properly and matches the .yaml environment configuration. 
+4. Training was perfoemd using train.py, model.py, and data_loader.py many ideas we wound up using in our final model came from several 
+5. Inference is performed using the inference.py file. The batch size for inference must be 1 or evenly divisible by the dataset being tested.
 
-## Model Training Instructions:
+## Final Results:
+We ended up training a model for 3 epochs based off of InceptionV3. This model was trained off of stage_1_training images. We did not perform any additional training in stage 2 with the updated training data and produced a result of 0.185 loss on 1% of the final stage 2 test data. Will update when we have the final results.
+
+
+## OLD Model Training Instructions:
+These instructions were for the original idea we had of training seperate binary cross entropy models and predicting on class "any" first. We decided to abandon this pursuit when using a categorical cross entropy loss approach and a vector of all subtype including any, proved to be easier to get better results in the limited time we had.
+
 start training via:
 python train.py {model-name}-{dims}-{loss}-{subtype}-{monthDay-version}
 e.g.
