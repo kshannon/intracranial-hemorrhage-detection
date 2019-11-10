@@ -1,120 +1,57 @@
-import sys
-import os
-import numpy as np
-import datetime
-import tensorflow as tf
-from tensorflow import keras as K
-from tensorflow import ConfigProto
-from tensorflow import InteractiveSession
-# from tensorflow.keras import metrics.CategoricalCrossentropy
-from tensorflow.keras.losses import CategoricalCrossentropy
-from tensorflow.keras.applications import ResNet50
+from datetime import datetime
+from model import MyDeepModel, create_submission
+from data_loader import read_testset, read_trainset, DataGenerator
 
-import data_flow
-import parse_config
-from data_loader import DataGenerator
-import custom_loss as loss
-import custom_callbacks as callbks
+import keras as K
+
+from sklearn.model_selection import ShuffleSplit
 
 
-if parse_config.USING_RTX_20XX:
-    config = tf.ConfigProto()
-    config.gpu_options.allow_growth = True
-    tf.keras.backend.set_session(tf.Session(config=config))
+# from K_applications.resnet import ResNet50
+from keras.applications.inception_v3 import InceptionV3
+from keras.applications.inception_resnet_v2 import InceptionResNetV2, preprocess_input
+from keras.applications.densenet import DenseNet121
+from keras.applications.mobilenet_v2 import MobileNetV2
+
+test_images_dir = '../../data/stage_1_test_images/'
+train_images_dir = '../../data/stage_1_train_images/'
+trainset_filename = "../../data/stage_1_train.csv"
+testset_filename = "../../stage_1_sample_submission.csv"
+num_epochs = 10
+img_shape = (256,256,3)
+batch_size=32
+TRAINING = True # If False, then just load model and predict
+
+engine=InceptionV3
+model_filename="InceptionV3_{}.hdf5".format(datetime.now().strftime('%Y_%m_%d_%H_%M_%S'))
+#model_filename="wrapper_2019_11_02_22_06_45.hdf5"
+
+# obtain model
+model = MyDeepModel(engine=engine, input_dims=img_shape, batch_size=batch_size,
+                    learning_rate=5e-4,
+                    num_epochs=num_epochs, decay_rate=0.8,
+                    decay_steps=1,
+                    weights="imagenet", verbose=1,
+                    train_image_dir=train_images_dir,
+                    model_filename=model_filename)
 
 
-MODEL_NAME = sys.argv[1]
-DATA_DIRECTORY = data_flow.TRAIN_DATA_PATH
-TRAIN_CSV = parse_config.TRAIN_CSV
-VALIDATE_CSV = parse_config.VALIDATE_CSV
-TENSORBOARD_DIR = os.path.join('tensorboards/', sys.argv[1])
-CLASS_WEIGHTS = [1.0, 1.0, 1.0, 1.0, 1.0, 2.0]
-BATCH_SIZE = 8
-EPOCHS = 15
-
-num_chan_in = 3
-height = 512 #224
-width = 512 #224
-
-DIMS = (height,width) #512,512 default
-RESIZE = True
-
-num_classes = 1
-
-training_data_gen = DataGenerator(csv_filename=TRAIN_CSV,
-                                    data_path=DATA_DIRECTORY,
-                                    batch_size=BATCH_SIZE,
-                                    resize=RESIZE,
-                                    dims=DIMS,
-                                    num_classes=num_classes,
-                                    augment=True,train=True,
-                                    window=False)
-validation_data_gen = DataGenerator(csv_filename=VALIDATE_CSV,
-                                    data_path=DATA_DIRECTORY,
-                                    batch_size=BATCH_SIZE,
-                                    resize=RESIZE,
-                                    num_classes=num_classes,
-                                    dims=DIMS,
-                                    augment=False,
-                                    window=False)
+#model.load(model_filename)  # Use previous checkpoint
 
 
-#################################  CALLBACKS  ################################
+if (TRAINING == True):
 
-# Saved models
-checkpoint = K.callbacks.ModelCheckpoint(os.path.join('../models/', sys.argv[1] + '.pb'), verbose=1, save_best_only=True)
+    df = read_trainset(trainset_filename)
+    ss = ShuffleSplit(n_splits=10, test_size=0.1, random_state=816).split(df.index)
+    # lets go for the first fold only
+    train_idx, valid_idx = next(ss)
 
-# TensorBoard
-tb_logs = K.callbacks.TensorBoard(log_dir=TENSORBOARD_DIR,
-                                    update_freq='batch',
-                                    profile_batch=0)
-
-# Interrupt training if `val_loss` stops improving for over 2 epochs
-early_stop = K.callbacks.EarlyStopping(patience=2, monitor='val_loss')
-
-# Learning Rate
-learning_rate = 5e-4
-decay_rate = 0.8
-decay_steps = 1
-# lr_sched = callbks.step_decay_schedule(initial_lr=1e-4, decay_factor=0.75, step_size=2)
-lr_sched = K.callbacks.LearningRateScheduler(lambda epoch: learning_rate * pow(decay_rate, np.floor(epoch / decay_steps)))
+    # Train the model
+    model.fit_model(df.iloc[train_idx], df.iloc[valid_idx])
 
 
-#################################################################################
-######################  YOUR MODEL DEFINITION GOES IN HERE  #####################
-#################################################################################
+test_df = read_testset(testset_filename)
+test_generator = DataGenerator(test_df.index, None, 1, img_shape, test_images_dir)
+best_model = K.models.load_model(model.model_filename, compile=False)
 
-
-
-bn_momentum = 0.99
-
-# inputs = K.layers.Input([height, width, num_chan_in], name="DICOM")
-
-resnet_model = ResNet50(input_shape=[height, width, num_chan_in],
-                        weights='imagenet',
-                        include_top=False,
-                        utils = K.utils,
-                        models = K.models,
-                        layers = K.layers,
-                        backend = K.backend)
-                        # pooling='avg'
-
-global_avg_pool = K.layers.GlobalAveragePooling2D(name='avg_pool')(resnet_model.output)
-hemorrhage_output = K.layers.Dense(num_classes, activation="sigmoid", name='dense_output')(global_avg_pool)
-
-model = K.models.Model(inputs=resnet_model.input, outputs=hemorrhage_output)
-
-model.compile(loss="binary_crossentropy",
-                optimizer=K.optimizers.Adam(lr = 5e-4, beta_1 = .9, beta_2 = .999, decay = 0.8),
-                metrics=["accuracy"])
-
-#################################################################################
-#######################  YOUR MODEL DEFINITION ENDs HERE  #######################
-#################################################################################
-#K.losses.categorical_crossentropy,
-
-# Here we go...
-model.fit_generator(training_data_gen,
-                    validation_data=validation_data_gen,
-                    callbacks=[lr_sched, checkpoint, tb_logs, early_stop],
-                    epochs=EPOCHS)
+prediction_df = create_submission(best_model, test_generator, test_df)

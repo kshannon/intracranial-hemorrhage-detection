@@ -1,6 +1,7 @@
 # Project Directories
 data/
 misc/
+logs/
 tensorboards/
 TensorBoard_logs/
 submissions/
@@ -15,6 +16,7 @@ events.out.tfevents.*
 *.conf
 *.ini
 *.config
+*.fth
 *-ignore.py
 *-ignore.ipynb
 notes.txt

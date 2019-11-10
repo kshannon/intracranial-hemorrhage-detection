@@ -12,7 +12,8 @@ def weighted_log_loss(y_true, y_pred):
     ---------------------------------------------------
     """
     
-    class_weights = np.array([1., 1., 1., 1., 1., 2.])
+    # class_weights = np.array([1., 1., 1., 1., 1., 2.])
+    class_weights = np.array([1.])
     
     eps = K.backend.epsilon()
     
@@ -50,7 +51,8 @@ def weighted_loss(y_true, y_pred):
         sklearn.metrics.log_loss with sample weights
     """
     
-    class_weights = K.backend.variable([1., 1., 1., 1., 1. ,2.])
+    # class_weights = K.backend.variable([1., 1., 1., 1., 1. ,2.])
+    class_weights = K.backend.variable([1.])
     
     eps = K.backend.epsilon()
     
@@ -70,7 +72,8 @@ def weighted_log_loss_metric(trues, preds):
     of the validation set in PredictionCheckpoint()
     ------------------------------------------
     """
-    class_weights = [1., 1., 1., 1., 1., 2.]
+    # class_weights = [1., 1., 1., 1., 1., 2.]
+    class_weights = [1.]
     
     epsilon = 1e-7
     
