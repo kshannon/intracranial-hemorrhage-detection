@@ -20,7 +20,7 @@ testset_filename = "../../stage_1_sample_submission.csv"
 num_epochs = 10
 img_shape = (256,256,3)
 batch_size=32
-TRAINING = True # If False, then just load model and predict
+TRAINING =True # If False, then just load model and predict
 
 engine=InceptionV3
 model_filename="InceptionV3_{}.hdf5".format(datetime.now().strftime('%Y_%m_%d_%H_%M_%S'))
@@ -35,6 +35,7 @@ model = MyDeepModel(engine=engine, input_dims=img_shape, batch_size=batch_size,
                     train_image_dir=train_images_dir,
                     model_filename=model_filename)
 
+model.load("epoch2.hdf5")
 
 #model.load(model_filename)  # Use previous checkpoint
 

@@ -7,7 +7,8 @@ from datetime import datetime
 from math import ceil, floor, log
 
 import tensorflow as tf
-import tensorflow.keras as K
+import tensorflow.keras as keras
+import keras as K
 
 
 from data_loader import DataGenerator
@@ -107,7 +108,7 @@ class MyDeepModel:
                              models = K.models, utils = K.utils)
 
         x = K.layers.GlobalAveragePooling2D(name='avg_pool')(engine.output)
-#         x = keras.layers.Dropout(0.2)(x)
+        x = K.layers.Dropout(0.3)(x)
 #         x = keras.layers.Dense(keras.backend.int_shape(x)[1], activation="relu", name="dense_hidden_1")(x)
 #         x = keras.layers.Dropout(0.1)(x)
         out = K.layers.Dense(6, activation="sigmoid", name='dense_output')(x)
@@ -145,7 +146,7 @@ class MyDeepModel:
             ),
             use_multiprocessing=True,
             workers=4,
-            callbacks=[scheduler, checkpointer, PredictionCheckpoint()]
+            callbacks=[PredictionCheckpoint(), scheduler, checkpointer]
         )
 
     def save(self, path):
